@@ -124,8 +124,8 @@ class RecoveryEngine(private val context: Context) {
                 )
             )
 
-            val source = entity.stagedPath?.let(::File)
-            if (source == null || !source.exists()) {
+            val source = openSource(entity)
+            if (source == null) {
                 failures += "${entity.displayName}: المصدر غير متاح"
                 return@forEachIndexed
             }
@@ -170,6 +170,31 @@ class RecoveryEngine(private val context: Context) {
         return report
     }
 
+    /**
+     * يفتح مقبض قراءة صالحاً للملف.
+     *
+     * على أندرويد 10+ يُحجب الوصول المباشر لمسار DATA، لذلك نجرّب content
+     * Uri أولاً للملفات المكتشفة عبر MediaStore، ثم نعود إلى الملف على
+     * القرص للملفات المنحوتة داخل مساحة التطبيق.
+     */
+    private fun openSource(entity: RecoveredFileEntity): (() -> java.io.InputStream)? {
+        entity.contentUri?.let { raw ->
+            val uri = runCatching { Uri.parse(raw) }.getOrNull()
+            if (uri != null && runCatching {
+                    context.contentResolver.openInputStream(uri)?.close(); true
+                }.getOrDefault(false)
+            ) {
+                return { context.contentResolver.openInputStream(uri)!! }
+            }
+        }
+
+        val file = entity.stagedPath?.let(::File)
+        if (file != null && file.exists() && file.canRead()) {
+            return { FileInputStream(file) }
+        }
+        return null
+    }
+
     /** يضمن عدم تعارض الأسماء داخل نفس المجلد الوجهة. */
     private fun uniqueName(
         entity: RecoveredFileEntity,
@@ -196,7 +221,7 @@ class RecoveryEngine(private val context: Context) {
     private interface DestinationWriter {
         val destinationLabel: String
         val foldersCreated: Int
-        fun write(relativeFolder: String, name: String, source: File): WriteResult
+        fun write(relativeFolder: String, name: String, source: () -> java.io.InputStream): WriteResult
     }
 
     private fun createWriter(destination: Uri?): DestinationWriter =
@@ -224,7 +249,7 @@ class RecoveryEngine(private val context: Context) {
         override val destinationLabel: String = root.name ?: treeUri.toString()
         override val foldersCreated: Int get() = created
 
-        override fun write(relativeFolder: String, name: String, source: File): WriteResult {
+        override fun write(relativeFolder: String, name: String, source: () -> java.io.InputStream): WriteResult {
             val dir = resolveFolder(relativeFolder)
             val existing = dir.findFile(name)
             existing?.delete()
@@ -233,7 +258,7 @@ class RecoveryEngine(private val context: Context) {
 
             var written = 0L
             context.contentResolver.openOutputStream(target.uri)?.use { out ->
-                FileInputStream(source).use { input ->
+                source().use { input ->
                     val buffer = ByteArray(BUFFER)
                     while (true) {
                         val read = input.read(buffer)
@@ -287,14 +312,14 @@ class RecoveryEngine(private val context: Context) {
         override val destinationLabel: String = root.absolutePath
         override val foldersCreated: Int get() = created
 
-        override fun write(relativeFolder: String, name: String, source: File): WriteResult {
+        override fun write(relativeFolder: String, name: String, source: () -> java.io.InputStream): WriteResult {
             val dir = if (relativeFolder.isBlank()) root else File(root, sanitize(relativeFolder))
             if (!dir.exists()) {
                 if (dir.mkdirs()) created++ else error("تعذّر إنشاء المجلد ${dir.absolutePath}")
             }
             val target = File(dir, name)
             var written = 0L
-            FileInputStream(source).use { input ->
+            source().use { input ->
                 FileOutputStream(target).use { out ->
                     val buffer = ByteArray(BUFFER)
                     while (true) {

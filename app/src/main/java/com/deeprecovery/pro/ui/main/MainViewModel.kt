@@ -30,7 +30,8 @@ data class MainUiState(
     val hasResumableSession: Boolean = false,
     val resumableSessionId: Long = -1L,
     val lastSessionId: Long = -1L,
-    val freeSpaceBytes: Long = 0
+    val freeSpaceBytes: Long = 0,
+    val hasAllFilesAccess: Boolean = true
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -67,7 +68,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 lastSessionId = prefs.lastSessionId,
                 freeSpaceBytes = withContext(Dispatchers.IO) {
                     StorageUtils.freeSpace(StorageUtils.stagingDir(getApplication()))
-                }
+                },
+                hasAllFilesAccess = StorageUtils.hasAllFilesAccess()
             )
             checkRoot()
         }

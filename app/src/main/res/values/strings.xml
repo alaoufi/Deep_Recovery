@@ -65,6 +65,7 @@
     <string name="scan_failed">تعذّر إكمال الفحص</string>
 
     <string name="stage_preparing">تجهيز الفحص…</string>
+    <string name="stage_measuring">حساب حجم الفحص…</string>
     <string name="stage_mediastore">تحليل Media Store…</string>
     <string name="stage_folders">فحص المجلدات…</string>
     <string name="stage_carving">استخراج الملفات من البيانات الخام…</string>
@@ -161,6 +162,12 @@
     <string name="perm_all_files_body">للفحص العميق لكل المجلدات، امنح صلاحية الوصول لكل الملفات من إعدادات النظام.</string>
     <string name="perm_grant">منح الإذن</string>
     <string name="perm_open_settings">فتح الإعدادات</string>
+    <string name="all_files_title">الوصول لكل الملفات غير ممنوح</string>
+    <string name="all_files_body">بدون هذا الإذن يمنع النظام التطبيق من قراءة معظم المجلدات، فلا يجد الفحص العميق إلا عدداً قليلاً جداً من الملفات. امنح الإذن للحصول على نتائج حقيقية.</string>
+    <string name="all_files_grant">منح الوصول لكل الملفات</string>
+    <string name="all_files_granted">الوصول لكل الملفات ممنوح</string>
+    <string name="all_files_warning_scan">الفحص العميق بدون إذن «الوصول لكل الملفات» سيجد عدداً قليلاً جداً من الملفات. هل تريد منح الإذن أولاً؟</string>
+    <string name="all_files_continue_anyway">متابعة بدونه</string>
     <string name="perm_denied">تم رفض الإذن — سيقتصر الفحص على المساحات المسموح بها.</string>
     <string name="perm_notifications_body">إذن الإشعارات يسمح بعرض تقدّم الفحص أثناء عمله في الخلفية.</string>
 

@@ -117,6 +117,25 @@ object StorageUtils {
 
     fun freeSpace(dir: File): Long = runCatching { dir.usableSpace }.getOrDefault(0L)
 
+    /**
+     * يزيل المسارات المتداخلة ويُبقي الجذر الأعلى فقط.
+     *
+     * اختيار «الذاكرة الداخلية» مع DCIM و Camera معاً يعني أن الملف نفسه
+     * يقع تحت أكثر من جذر مختار، فيُفحص عدة مرات ويظهر مكرراً في النتائج
+     * ويطيل الفحص أضعافاً.
+     */
+    fun dedupeOverlappingPaths(paths: List<String>): List<String> {
+        val kept = mutableListOf<String>()
+        paths.map { it.trimEnd('/') }
+            .distinct()
+            .sortedBy { it.length }
+            .forEach { path ->
+                val covered = kept.any { path == it || path.startsWith("$it/") }
+                if (!covered) kept += path
+            }
+        return kept
+    }
+
     /** يحذف مجلد الملفات المؤقتة بالكامل. */
     fun clearStaging(context: Context) {
         runCatching { stagingDir(context).deleteRecursively() }

@@ -73,17 +73,20 @@ class PreviewFragment : Fragment() {
             ContextCompat.getColor(requireContext(), qualityColor(file.quality))
         )
 
-        val source = file.stagedPath?.let(::File)
-        if (file.mediaType == MediaType.VIDEO && source != null && source.exists()) {
-            showVideo(source)
+        // Uri أولاً: المسار المباشر محجوب على أندرويد 10+
+        val uri = file.contentUri?.let(Uri::parse)
+            ?: file.stagedPath?.let(::File)?.takeIf { it.exists() }?.let(Uri::fromFile)
+
+        if (file.mediaType == MediaType.VIDEO && uri != null) {
+            showVideo(uri)
         } else {
-            showImage(source)
+            showImage(uri)
         }
 
         buildInfoTable(file)
     }
 
-    private fun showImage(source: File?) = with(binding) {
+    private fun showImage(source: Uri?) = with(binding) {
         playerView.visibility = View.GONE
         imagePreview.visibility = View.VISIBLE
         Glide.with(imagePreview)
@@ -93,14 +96,14 @@ class PreviewFragment : Fragment() {
             .into(imagePreview)
     }
 
-    private fun showVideo(source: File) = with(binding) {
+    private fun showVideo(source: Uri) = with(binding) {
         imagePreview.visibility = View.GONE
         playerView.visibility = View.VISIBLE
 
         val exoPlayer = ExoPlayer.Builder(requireContext()).build()
         player = exoPlayer
         playerView.player = exoPlayer
-        exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(source)))
+        exoPlayer.setMediaItem(MediaItem.fromUri(source))
         exoPlayer.prepare()
         exoPlayer.playWhenReady = false
     }

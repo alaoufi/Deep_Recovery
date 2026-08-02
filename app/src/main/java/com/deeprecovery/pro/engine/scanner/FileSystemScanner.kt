@@ -2,6 +2,7 @@ package com.deeprecovery.pro.engine.scanner
 
 import com.deeprecovery.pro.data.model.MediaType
 import com.deeprecovery.pro.data.model.RecoveryQuality
+import com.deeprecovery.pro.engine.carver.FileSignature
 import com.deeprecovery.pro.engine.carver.MediaValidator
 import com.deeprecovery.pro.engine.carver.SignatureRegistry
 import com.deeprecovery.pro.util.StorageUtils
@@ -9,12 +10,19 @@ import kotlinx.coroutines.ensureActive
 import java.io.File
 import kotlin.coroutines.coroutineContext
 
+/** حصيلة مرحلة القياس المسبقة، تُستخدم لحساب نسبة إنجاز حقيقية. */
+data class WalkMeasurement(
+    val fileCount: Int = 0,
+    val totalBytes: Long = 0,
+    val carveBytes: Long = 0
+)
+
 /**
  * المرور على المجلدات المتاحة بحثاً عن ملفات وسائط مخفية أو مهملة.
  *
  * يغطي حالات شائعة جداً على أندرويد:
  *  - ملفات `.trashed-*` و `.pending-*` التي ينشئها النظام عند الحذف.
- *  - مجلدات `.thumbnails` و `.Trash` و `LOST.DIR`.
+ *  - مجلدات `.Trash` و `LOST.DIR` و `.thumbnails`.
  *  - ملفات بامتداد مفقود أو خاطئ (نتعرف عليها بالتوقيع لا بالاسم).
  */
 class FileSystemScanner {
@@ -23,6 +31,87 @@ class FileSystemScanner {
         private val HIDDEN_PREFIXES = listOf(".trashed-", ".pending-", ".nomedia-")
         private val RECOVERY_DIRS = listOf(".Trash", ".trash", "LOST.DIR", ".thumbnails")
         private const val MAX_DEPTH = 12
+        private const val APP_DIR_MARKER = "/Android/data/com.deeprecovery.pro"
+
+        /**
+         * امتدادات مكافئة لكل توقيع.
+         *
+         * بدونها يُعتبر كل ملف `.jpeg` مخالفاً لتوقيع `jpg` فيُدرج كمرشّح
+         * استعادة — وهو إنذار كاذب يملأ النتائج ويبطئ الفحص.
+         */
+        private val EXTENSION_ALIASES: Map<String, Set<String>> = mapOf(
+            "jpg" to setOf("jpg", "jpeg", "jpe", "jfif"),
+            "png" to setOf("png"),
+            "webp" to setOf("webp"),
+            "heic" to setOf("heic", "heif", "hif"),
+            "mp4" to setOf("mp4", "m4v", "mp4v"),
+            "m4v" to setOf("m4v", "mp4"),
+            "mov" to setOf("mov", "qt"),
+            "3gp" to setOf("3gp", "3gpp"),
+            "3g2" to setOf("3g2", "3gpp2"),
+            "avi" to setOf("avi"),
+            "mkv" to setOf("mkv", "webm")
+        )
+    }
+
+    /**
+     * مرور تكراري (بلا استدعاء ذاتي) على شجرة المجلدات.
+     *
+     * يتجاهل الروابط الدائرية عبر المسارات المعيارية، ولا يدخل مساحة عمل
+     * التطبيق حتى لا يفحص ما استخرجه بنفسه.
+     */
+    private suspend fun traverse(roots: List<File>, onFile: suspend (File) -> Unit) {
+        val stack = ArrayDeque<Pair<File, Int>>()
+        val visited = mutableSetOf<String>()
+        roots.forEach { if (it.isDirectory) stack.addLast(it to 0) }
+
+        while (stack.isNotEmpty()) {
+            coroutineContext.ensureActive()
+            val (dir, depth) = stack.removeLast()
+            if (depth > MAX_DEPTH) continue
+
+            val canonical = runCatching { dir.canonicalPath }.getOrNull() ?: continue
+            if (!visited.add(canonical)) continue
+            if (canonical.contains(APP_DIR_MARKER)) continue
+
+            val children = runCatching { dir.listFiles() }.getOrNull() ?: continue
+            for (child in children) {
+                coroutineContext.ensureActive()
+                when {
+                    child.isDirectory -> stack.addLast(child to depth + 1)
+                    child.isFile -> onFile(child)
+                }
+            }
+        }
+    }
+
+    /**
+     * مرحلة قياس سريعة: تعدّ الملفات وتجمع أحجامها بلا قراءة أي محتوى.
+     *
+     * هذه هي التي تعطي مقاماً حقيقياً لنسبة الإنجاز والوقت المتبقي؛ بدونها
+     * تبقى النسبة صفراً ويبدو التطبيق معلّقاً.
+     */
+    suspend fun measure(
+        roots: List<File>,
+        minCarveBytes: Long,
+        maxCarveFiles: Int
+    ): WalkMeasurement {
+        var fileCount = 0
+        var totalBytes = 0L
+        var carveBytes = 0L
+        var carveFiles = 0
+
+        traverse(roots) { file ->
+            val length = runCatching { file.length() }.getOrDefault(0L)
+            fileCount++
+            totalBytes += length
+            if (length >= minCarveBytes && carveFiles < maxCarveFiles) {
+                carveFiles++
+                carveBytes += length
+            }
+        }
+
+        return WalkMeasurement(fileCount, totalBytes, carveBytes)
     }
 
     /**
@@ -40,43 +129,32 @@ class FileSystemScanner {
     ) {
         val signatures = SignatureRegistry.signaturesFor(includeImages, includeVideos)
         val header = ByteArray(SignatureRegistry.maxSignatureSpan + 8)
-        val visited = mutableSetOf<String>()
 
-        suspend fun visit(dir: File, depth: Int) {
-            coroutineContext.ensureActive()
-            if (depth > MAX_DEPTH) return
-            val canonical = runCatching { dir.canonicalPath }.getOrNull() ?: return
-            if (!visited.add(canonical)) return
-            // لا نفحص مساحة العمل المؤقتة الخاصة بالتطبيق
-            if (canonical.contains("/Android/data/com.deeprecovery.pro")) return
-
-            val children = runCatching { dir.listFiles() }.getOrNull() ?: return
-            for (child in children) {
-                coroutineContext.ensureActive()
-                when {
-                    child.isDirectory -> visit(child, depth + 1)
-                    child.isFile -> {
-                        onProgressFile(child)
-                        val discovered = inspect(child, signatures, header) ?: continue
-                        onFile(discovered)
-                    }
-                }
-            }
-        }
-
-        roots.forEach { root ->
-            if (root.isDirectory) visit(root, 0)
+        traverse(roots) { file ->
+            onProgressFile(file)
+            inspect(file, signatures, header)?.let { onFile(it) }
         }
     }
 
     /** يفحص ملفاً واحداً ويقرر هل هو مرشّح للاستعادة. */
     private fun inspect(
         file: File,
-        signatures: List<com.deeprecovery.pro.engine.carver.FileSignature>,
+        signatures: List<FileSignature>,
         header: ByteArray
     ): DiscoveredFile? {
-        val length = file.length()
+        val length = runCatching { file.length() }.getOrDefault(0L)
         if (length < 1024) return null
+
+        val name = file.name
+        val looksDeleted = HIDDEN_PREFIXES.any { name.startsWith(it) } ||
+            name.startsWith(".") ||
+            file.parentFile?.name in RECOVERY_DIRS ||
+            file.path.contains("/LOST.DIR/")
+
+        val actualExtension = name.substringAfterLast('.', "").lowercase()
+        // ملف عادي بامتداد وسائط معروف ليس مرشّحاً — نتفاداه قبل أي قراءة
+        val knownExtension = EXTENSION_ALIASES.values.any { actualExtension in it }
+        if (!looksDeleted && knownExtension) return null
 
         val read = runCatching {
             file.inputStream().use { it.read(header, 0, header.size) }
@@ -85,15 +163,8 @@ class FileSystemScanner {
 
         val signature = signatures.firstOrNull { it.matchesAt(header, 0, read) } ?: return null
 
-        val name = file.name
-        val looksDeleted = HIDDEN_PREFIXES.any { name.startsWith(it) } ||
-            name.startsWith(".") ||
-            file.parentFile?.name in RECOVERY_DIRS ||
-            file.path.contains("/LOST.DIR/")
-
-        // نتجاهل الملفات الحيّة العادية إلا إن كان امتدادها لا يطابق محتواها
-        val extensionMismatch = !name.substringAfterLast('.', "")
-            .equals(signature.extension, ignoreCase = true)
+        val allowed = EXTENSION_ALIASES[signature.extension] ?: setOf(signature.extension)
+        val extensionMismatch = actualExtension !in allowed
         if (!looksDeleted && !extensionMismatch) return null
 
         val validation = MediaValidator.validate(file, signature.mediaType)

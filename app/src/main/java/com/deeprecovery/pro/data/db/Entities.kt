@@ -88,6 +88,14 @@ data class RecoveredFileEntity(
 
     /** المسار المؤقت داخل مساحة التطبيق (أو المسار الأصلي للملفات غير المنحوتة). */
     val stagedPath: String?,
+
+    /**
+     * معرّف MediaStore للملف عند اكتشافه عبره.
+     *
+     * على أندرويد 10+ يُحجب الوصول المباشر لمسار DATA، فيكون هذا هو
+     * المقبض الوحيد الصالح لعرض المصغّرة ولقراءة الملف عند الاستعادة.
+     */
+    val contentUri: String? = null,
     val isCarved: Boolean,
 
     val quality: RecoveryQuality,
@@ -108,6 +116,15 @@ data class RecoveredFileEntity(
     val recoveredUri: String? = null,
     val recoveredAt: Long? = null
 )
+
+/**
+ * المقبض الذي يُقرأ منه الملف فعلياً.
+ *
+ * نفضّل content Uri عندما يكون متاحاً لأن المسار المباشر محجوب على
+ * أندرويد 10+، ونعود إلى المسار للملفات المنحوتة داخل مساحة التطبيق.
+ */
+val RecoveredFileEntity.readableSource: Any?
+    get() = contentUri ?: stagedPath
 
 /** سجل عملية استعادة لعرض تقرير النجاح. */
 @Entity(tableName = "recovery_reports")

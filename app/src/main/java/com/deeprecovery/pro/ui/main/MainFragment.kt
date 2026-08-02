@@ -120,6 +120,8 @@ class MainFragment : Fragment() {
 
         startScanButton.setOnClickListener { requestPermissionsThenScan() }
 
+        grantAllFilesButton.setOnClickListener { openAllFilesSettings() }
+
         resumeScanButton.setOnClickListener {
             val id = viewModel.state.value.resumableSessionId
             navigateToScan(id)
@@ -171,6 +173,11 @@ class MainFragment : Fragment() {
             FormatUtils.formatSize(requireContext(), state.freeSpaceBytes)
         )
 
+        // بدون هذا الإذن لا يستطيع النظام سرد معظم المجلدات فتكون
+        // النتائج شبه معدومة — نُظهره بوضوح بدل تركه تحذيراً عابراً
+        allFilesCard.visibility =
+            if (needsAllFilesAccess(state)) View.VISIBLE else View.GONE
+
         resumeScanButton.visibility =
             if (state.hasResumableSession) View.VISIBLE else View.GONE
         lastResultsButton.visibility =
@@ -208,6 +215,9 @@ class MainFragment : Fragment() {
         bindingLocations = false
     }
 
+    private fun needsAllFilesAccess(state: MainUiState): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !state.hasAllFilesAccess
+
     // ------------------------------------------------------------ الصلاحيات
 
     private fun requestPermissionsThenScan() {
@@ -229,10 +239,11 @@ class MainFragment : Fragment() {
 
         if (needsAllFiles) {
             MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.perm_title)
-                .setMessage(R.string.perm_all_files_body)
-                .setPositiveButton(R.string.perm_open_settings) { _, _ -> openAllFilesSettings() }
-                .setNegativeButton(R.string.action_cancel) { _, _ ->
+                .setTitle(R.string.all_files_title)
+                .setMessage(R.string.all_files_warning_scan)
+                .setIcon(R.drawable.ic_info)
+                .setPositiveButton(R.string.all_files_grant) { _, _ -> openAllFilesSettings() }
+                .setNegativeButton(R.string.all_files_continue_anyway) { _, _ ->
                     mediaPermissions.launch(permissions)
                 }
                 .show()

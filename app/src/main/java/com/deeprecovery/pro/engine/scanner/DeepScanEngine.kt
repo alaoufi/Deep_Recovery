@@ -22,7 +22,10 @@ import com.deeprecovery.pro.engine.root.BlockDeviceRawSource
 import com.deeprecovery.pro.engine.root.RootManager
 import com.deeprecovery.pro.util.StorageUtils
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -100,7 +103,7 @@ class DeepScanEngine(private val context: Context) {
      * @param sessionId جلسة موجودة للاستئناف، أو -1 لإنشاء جلسة جديدة.
      * @return معرّف الجلسة.
      */
-    suspend fun runScan(request: ScanRequest, sessionId: Long = -1L): Long {
+    suspend fun runScan(request: ScanRequest, sessionId: Long = -1L): Long = coroutineScope {
         startTime = System.currentTimeMillis()
         val session = prepareSession(request, sessionId)
         val id = session.id
@@ -111,9 +114,21 @@ class DeepScanEngine(private val context: Context) {
             stageLabelRes = R.string.stage_preparing
         )
 
-        return try {
+        // نبضة كل ثانية تُبقي الوقت المنقضي والوقت المتبقي يتحركان دائماً،
+        // حتى في المراحل التي لا تُصدر أحداثاً — وإلا بدا التطبيق معلّقاً.
+        val heartbeat = launch {
+            while (isActive) {
+                delay(1000)
+                if (!paused) tickElapsed()
+            }
+        }
+
+        try {
             val sources = buildSources(request, id)
-            val totalBytes = sources.sumOf { it.totalBytes }
+            // المجموع يشمل مرحلة المرور ومرحلة النحت معاً، فلا تتجمّد النسبة
+            val totalBytes = sources.sumOf { source ->
+                source.totalBytes + (source as? ScanSource.Directory)?.carveBytes.orZero()
+            }
             sessionDao.update(session.copy(totalBytes = totalBytes, status = ScanStatus.RUNNING))
             _progress.value = _progress.value.copy(totalBytes = totalBytes)
 
@@ -139,7 +154,28 @@ class DeepScanEngine(private val context: Context) {
             Log.e(TAG, "فشل الفحص", e)
             finish(id, ScanStatus.FAILED, e.message)
             id
+        } finally {
+            heartbeat.cancel()
         }
+    }
+
+    private fun Long?.orZero(): Long = this ?: 0L
+
+    /** يحدّث الزمن المنقضي والمتبقي دون كتابة في قاعدة البيانات. */
+    private fun tickElapsed() {
+        val current = _progress.value
+        if (current.status != ScanStatus.RUNNING) return
+        val elapsed = System.currentTimeMillis() - startTime
+        _progress.value = current.copy(elapsedMs = elapsed, etaMs = estimateEta(current, elapsed))
+    }
+
+    private fun estimateEta(progress: ScanProgress, elapsed: Long): Long {
+        if (progress.processedBytes <= 0 || progress.totalBytes <= progress.processedBytes) {
+            return -1L
+        }
+        val rate = progress.processedBytes.toDouble() / elapsed.coerceAtLeast(1)
+        if (rate <= 0.0) return -1L
+        return ((progress.totalBytes - progress.processedBytes) / rate).toLong()
     }
 
     // ------------------------------------------------------------- الجلسة
@@ -185,13 +221,16 @@ class DeepScanEngine(private val context: Context) {
 
     // ------------------------------------------------------------ المصادر
 
-    private sealed class ScanSource(val key: String, val label: String, val totalBytes: Long) {
+    private sealed class ScanSource(val key: String, val label: String, var totalBytes: Long) {
         class Directory(
             key: String,
             label: String,
             val dirs: List<File>,
             val location: ScanLocation
-        ) : ScanSource(key, label, dirs.sumOf { runCatching { it.totalSpace }.getOrDefault(0L) })
+        ) : ScanSource(key, label, 0L) {
+            /** حجم الملفات المرشّحة للنحت — يُحسب في مرحلة القياس. */
+            var carveBytes: Long = 0
+        }
 
         class LargeFile(val file: File, val location: ScanLocation) :
             ScanSource("file:${file.absolutePath}", file.name, file.length())
@@ -200,24 +239,71 @@ class DeepScanEngine(private val context: Context) {
             ScanSource("block:$path", path, size)
     }
 
+    /**
+     * يزيل المجلدات المتداخلة.
+     *
+     * اختيار «الذاكرة الداخلية» مع DCIM و Camera و WhatsApp يعني أن الملف
+     * نفسه يقع تحت أكثر من جذر مختار، فيُفحص عدة مرات ويظهر مكرراً في
+     * النتائج ويطيل الفحص أضعافاً. نُبقي الجذر الأعلى فقط.
+     */
+    private fun dedupeRoots(
+        targets: List<com.deeprecovery.pro.util.StorageTarget>
+    ): List<Pair<com.deeprecovery.pro.util.StorageTarget, File>> {
+        val canonical = targets.flatMap { target ->
+            target.directories.mapNotNull { dir ->
+                runCatching { dir.canonicalFile }.getOrNull()?.let { target to it }
+            }
+        }
+
+        val keptPaths = StorageUtils
+            .dedupeOverlappingPaths(canonical.map { it.second.absolutePath })
+            .toSet()
+
+        val seen = mutableSetOf<String>()
+        return canonical.filter { (_, dir) ->
+            val path = dir.absolutePath.trimEnd('/')
+            path in keptPaths && seen.add(path)
+        }
+    }
+
     private suspend fun buildSources(request: ScanRequest, sessionId: Long): List<ScanSource> {
         val sources = mutableListOf<ScanSource>()
         val targets = StorageUtils.resolveTargets(context)
+            .filter { it.available && it.location in request.locations }
 
-        targets.filter { it.available && it.location in request.locations }.forEach { target ->
-            sources += ScanSource.Directory(
-                key = "dir:${target.location.key}",
-                label = target.label,
-                dirs = target.directories,
-                location = target.location
-            )
-        }
+        dedupeRoots(targets)
+            .groupBy({ it.first }, { it.second })
+            .forEach { (target, dirs) ->
+                sources += ScanSource.Directory(
+                    key = "dir:${target.location.key}",
+                    label = target.label,
+                    dirs = dirs,
+                    location = target.location
+                )
+            }
 
         if (request.mode == ScanMode.ROOT && ScanLocation.RAW_BLOCK in request.locations) {
             if (RootManager.isRootAvailable()) {
                 RootManager.listPartitions()
                     .filter { it.isUserData }
                     .forEach { sources += ScanSource.RawDevice(it.path, it.sizeBytes) }
+            }
+        }
+
+        // مرحلة القياس: تعطي مقاماً حقيقياً لنسبة الإنجاز بدل سعة القرص
+        val measuring = sources.filterIsInstance<ScanSource.Directory>()
+        if (measuring.isNotEmpty()) {
+            emitStage(R.string.stage_measuring, "")
+            val scanner = FileSystemScanner()
+            for (source in measuring) {
+                checkPause()
+                val measurement = runCatching {
+                    scanner.measure(source.dirs, MIN_CARVE_TARGET, MAX_CARVE_CANDIDATES)
+                }.getOrDefault(WalkMeasurement())
+
+                source.totalBytes = measurement.totalBytes
+                source.carveBytes =
+                    if (request.depth == ScanDepth.QUICK) 0L else measurement.carveBytes
             }
         }
 
@@ -276,6 +362,9 @@ class DeepScanEngine(private val context: Context) {
                         carveCandidates += file
                     }
                     bumpProcessed(file.length())
+                    // بدون هذا يبقى الوقت المنقضي والنسبة جامدين طوال
+                    // أطول مرحلة في الفحص فيبدو التطبيق معلّقاً
+                    emitProgress()
                 },
                 onFile = { discovered ->
                     persistDiscovered(sessionId, discovered, request.detectDuplicates)
@@ -366,13 +455,19 @@ class DeepScanEngine(private val context: Context) {
         targetId: Long? = null,
         skipSelfAtOffsetZero: Boolean = false
     ) {
+        var lastCarveProcessed = 0L
         carver.carve(
             source = source,
             startOffset = startOffset,
             skipSelfAtOffsetZero = skipSelfAtOffsetZero,
-            onProgress = { _, absolute ->
+            onProgress = { processed, absolute ->
                 checkPause()
                 targetId?.let { targetDao.updateProgress(it, absolute) }
+                // نحتسب ما قرأه النحت كتقدّم أيضاً، وإلا توقف المؤشر أثناء
+                // مرحلة الاستخراج وهي الأطول
+                val delta = processed - lastCarveProcessed
+                if (delta > 0) bumpProcessed(delta)
+                lastCarveProcessed = processed
                 emitProgress()
             },
             onFile = { carved ->
@@ -403,6 +498,7 @@ class DeepScanEngine(private val context: Context) {
             sourceName = discovered.path ?: discovered.uri.orEmpty(),
             sourceOffset = -1L,
             stagedPath = discovered.path,
+            contentUri = discovered.uri,
             isCarved = false,
             quality = discovered.quality,
             confidence = discovered.confidence,
@@ -503,13 +599,10 @@ class DeepScanEngine(private val context: Context) {
 
         val current = _progress.value
         val elapsed = now - startTime
-        val eta = if (current.processedBytes > 0 && current.totalBytes > current.processedBytes) {
-            val rate = current.processedBytes.toDouble() / elapsed.coerceAtLeast(1)
-            ((current.totalBytes - current.processedBytes) / rate).toLong()
-        } else {
-            -1L
-        }
-        _progress.value = current.copy(elapsedMs = elapsed, etaMs = eta)
+        _progress.value = current.copy(
+            elapsedMs = elapsed,
+            etaMs = estimateEta(current, elapsed)
+        )
 
         sessionDao.updateProgress(
             id = current.sessionId,

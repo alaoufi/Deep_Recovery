@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import android.net.Uri
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.deeprecovery.pro.R
@@ -92,7 +93,8 @@ class RecoveredFileAdapter(
                 MediaType.UNKNOWN -> R.drawable.ic_broken_image
             }
 
-            val source = item.stagedPath?.let(::File)
+            // Uri أولاً: المسار المباشر محجوب على أندرويد 10+
+            val source: Any? = item.contentUri?.let(Uri::parse) ?: item.stagedPath?.let(::File)
             Glide.with(thumbnail)
                 .load(source)
                 .diskCacheStrategy(DiskCacheStrategy.NONE)
