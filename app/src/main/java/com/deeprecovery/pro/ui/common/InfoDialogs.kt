@@ -1,7 +1,10 @@
 package com.deeprecovery.pro.ui.common
 
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
 import com.deeprecovery.pro.R
+import com.deeprecovery.pro.util.CrashReporter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
@@ -23,6 +26,63 @@ object InfoDialogs {
             }
             .setCancelable(onAccepted == null)
             .show()
+    }
+
+    /**
+     * يعرض تقرير آخر انهيار مع إمكانية مشاركته.
+     *
+     * التقرير محفوظ داخل الجهاز فقط، ولا يُرسل إلا إذا اختار المستخدم
+     * مشاركته بنفسه.
+     */
+    fun showCrashReport(context: Context, onDismiss: (() -> Unit)? = null) {
+        val report = CrashReporter.readReport(context)
+        if (report.isBlank()) {
+            MaterialAlertDialogBuilder(context)
+                .setMessage(R.string.crash_log_empty)
+                .setPositiveButton(R.string.report_done, null)
+                .show()
+            return
+        }
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.crash_title)
+            .setMessage(R.string.crash_body)
+            .setIcon(R.drawable.ic_info)
+            .setPositiveButton(R.string.crash_view) { _, _ -> showCrashDetails(context, report) }
+            .setNeutralButton(R.string.crash_share) { _, _ -> shareCrashReport(context) }
+            .setNegativeButton(R.string.crash_dismiss) { dialog, _ -> dialog.dismiss() }
+            .setOnDismissListener { onDismiss?.invoke() }
+            .show()
+    }
+
+    private fun showCrashDetails(context: Context, report: String) {
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.crash_details_title)
+            .setMessage(report.takeLast(6000))
+            .setPositiveButton(R.string.crash_share) { _, _ -> shareCrashReport(context) }
+            .setNegativeButton(R.string.report_done, null)
+            .show()
+    }
+
+    private fun shareCrashReport(context: Context) {
+        val file = CrashReporter.logFile(context)
+        if (!file.exists()) return
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.crash_details_title))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching {
+            context.startActivity(
+                Intent.createChooser(intent, context.getString(R.string.crash_share))
+            )
+        }
     }
 
     fun showPrivacy(context: Context) {

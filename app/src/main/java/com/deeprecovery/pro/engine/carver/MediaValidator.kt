@@ -20,10 +20,36 @@ object MediaValidator {
         val durationMs: Long = 0L
     )
 
-    fun validate(file: File, mediaType: MediaType): Validation = when (mediaType) {
-        MediaType.IMAGE -> validateImage(file)
-        MediaType.VIDEO -> validateVideo(file)
-        MediaType.UNKNOWN -> Validation(decodable = false)
+    /** أقصى حجم نمرّره لفاكّات الترميز الأصلية. */
+    private const val MAX_DECODE_BYTES = 512L * 1024 * 1024
+
+    /**
+     * أدنى ثقة بنيوية نسمح عندها باستدعاء فاكّ الترميز الأصلي.
+     *
+     * تمرير بيانات خام تالفة إلى `MediaMetadataRetriever` قد يُسقط العملية
+     * على مستوى الكود الأصلي (SIGSEGV)، وهو انهيار لا يمكن التقاطه في
+     * Kotlin. لذلك لا نستدعيه إلا على مرشّح بنيته معقولة أصلاً.
+     */
+    private const val MIN_TRUSTED_STRUCTURE = 45
+
+    /**
+     * @param structureConfidence ثقة البنية القادمة من محرك النحت؛ تُستخدم
+     *   كبوابة أمان قبل استدعاء فاكّات الترميز الأصلية.
+     */
+    fun validate(
+        file: File,
+        mediaType: MediaType,
+        structureConfidence: Int = 100
+    ): Validation {
+        val length = runCatching { file.length() }.getOrDefault(0L)
+        if (length <= 0 || length > MAX_DECODE_BYTES) return Validation(decodable = false)
+        if (structureConfidence < MIN_TRUSTED_STRUCTURE) return Validation(decodable = false)
+
+        return when (mediaType) {
+            MediaType.IMAGE -> validateImage(file)
+            MediaType.VIDEO -> validateVideo(file)
+            MediaType.UNKNOWN -> Validation(decodable = false)
+        }
     }
 
     private fun validateImage(file: File): Validation = try {

@@ -197,6 +197,16 @@
     <string name="session_summary">%1$d ملف • %2$s</string>
     <string name="session_delete_confirm">حذف نتائج هذا الفحص؟</string>
 
+    <!-- تقرير الانهيار -->
+    <string name="crash_title">توقف التطبيق في المرة السابقة</string>
+    <string name="crash_body">تم حفظ تفاصيل المشكلة داخل الجهاز. يمكنك عرضها أو مشاركتها للمساعدة في إصلاحها. لا يُرسل أي شيء تلقائياً.</string>
+    <string name="crash_view">عرض التفاصيل</string>
+    <string name="crash_share">مشاركة التقرير</string>
+    <string name="crash_dismiss">تجاهل</string>
+    <string name="crash_details_title">تفاصيل التوقف</string>
+    <string name="menu_crash_log">سجل الأعطال</string>
+    <string name="crash_log_empty">لا يوجد سجل أعطال</string>
+
     <string-array name="size_units">
         <item>بايت</item>
         <item>ك.ب</item>

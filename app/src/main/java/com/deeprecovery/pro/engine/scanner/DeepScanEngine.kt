@@ -59,6 +59,10 @@ class DeepScanEngine(private val context: Context) {
         /** لا نطبّق النحت على الملفات الصغيرة جداً. */
         private const val MIN_CARVE_TARGET = 1L * 1024 * 1024
         private const val PROGRESS_INTERVAL_MS = 400L
+        private const val MAX_CARVE_CANDIDATES = 400
+
+        /** نتوقف عن الاستخراج قبل أن نخنق تخزين الجهاز. */
+        private const val MIN_FREE_BYTES = 300L * 1024 * 1024
     }
 
     private val db = AppDatabase.get(context)
@@ -283,13 +287,29 @@ class DeepScanEngine(private val context: Context) {
         if (request.depth != ScanDepth.QUICK) {
             emitStage(R.string.stage_carving, source.label)
             val carver = buildCarver(request)
-            for (file in carveCandidates.take(400)) {
+            for (file in carveCandidates.take(MAX_CARVE_CANDIDATES)) {
                 checkPause()
-                runCatching {
+                if (!hasRoomForStaging()) break
+                try {
                     FileRawSource(file).use { raw ->
-                        carveInto(sessionId, request, carver, raw, folderFor(file), file.parentFile?.name ?: source.label)
+                        carveInto(
+                            sessionId = sessionId,
+                            request = request,
+                            carver = carver,
+                            source = raw,
+                            folderPath = folderFor(file),
+                            folderLabel = file.parentFile?.name ?: source.label,
+                            skipSelfAtOffsetZero = true
+                        )
                     }
-                }.onFailure { if (it is CancellationException) throw it }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: OutOfMemoryError) {
+                    // ملف واحد لا يجب أن يُسقط الفحص كله
+                    Log.w(TAG, "نفاد الذاكرة أثناء نحت ${file.name}", e)
+                } catch (e: Throwable) {
+                    Log.w(TAG, "تعذّر نحت ${file.name}", e)
+                }
             }
         }
 
@@ -328,8 +348,12 @@ class DeepScanEngine(private val context: Context) {
 
     private fun buildCarver(request: ScanRequest) = FileCarver(
         stagingDir = StorageUtils.stagingDir(context),
-        signatures = SignatureRegistry.signaturesFor(request.includeImages, request.includeVideos)
+        signatures = SignatureRegistry.signaturesFor(request.includeImages, request.includeVideos),
+        minFreeBytes = MIN_FREE_BYTES
     )
+
+    private fun hasRoomForStaging(): Boolean =
+        StorageUtils.freeSpace(StorageUtils.stagingDir(context)) > MIN_FREE_BYTES
 
     private suspend fun carveInto(
         sessionId: Long,
@@ -339,11 +363,13 @@ class DeepScanEngine(private val context: Context) {
         folderPath: String,
         folderLabel: String,
         startOffset: Long = 0L,
-        targetId: Long? = null
+        targetId: Long? = null,
+        skipSelfAtOffsetZero: Boolean = false
     ) {
         carver.carve(
             source = source,
             startOffset = startOffset,
+            skipSelfAtOffsetZero = skipSelfAtOffsetZero,
             onProgress = { _, absolute ->
                 checkPause()
                 targetId?.let { targetDao.updateProgress(it, absolute) }

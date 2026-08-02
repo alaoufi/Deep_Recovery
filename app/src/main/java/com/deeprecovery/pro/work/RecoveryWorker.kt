@@ -36,32 +36,49 @@ class RecoveryWorker(
         val folderPath = inputData.getString(KEY_FOLDER)
         val fileIds = inputData.getLongArray(KEY_FILE_IDS)?.toList().orEmpty()
 
-        setForeground(createForegroundInfo(0, 0))
+        runCatching { setForeground(createForegroundInfo(0, 0)) }
         val engine = RecoveryEngine(applicationContext)
+        var lastUpdate = 0L
 
         val report = if (folderPath != null) {
             engine.recoverFolder(sessionId, folderPath, destination, preserve, skipDuplicates) {
-                setForeground(createForegroundInfo(it.current, it.total))
-                setProgress(
-                    workDataOf(
-                        KEY_PROGRESS_CURRENT to it.current,
-                        KEY_PROGRESS_TOTAL to it.total,
-                        KEY_PROGRESS_NAME to it.currentName,
-                        KEY_PROGRESS_FOLDER to it.currentFolder
-                    )
-                )
+                // كبح تحديث الإشعار: نشره لكل ملف يضغط على النظام بلا داعٍ
+                val now = System.currentTimeMillis()
+                val isEdge = it.current <= 1 || it.current == it.total
+                if (isEdge || now - lastUpdate >= NOTIFICATION_INTERVAL_MS) {
+                    lastUpdate = now
+                    runCatching { setForeground(createForegroundInfo(it.current, it.total)) }
+                    runCatching {
+                        setProgress(
+                            workDataOf(
+                                KEY_PROGRESS_CURRENT to it.current,
+                                KEY_PROGRESS_TOTAL to it.total,
+                                KEY_PROGRESS_NAME to it.currentName,
+                                KEY_PROGRESS_FOLDER to it.currentFolder
+                            )
+                        )
+                    }
+                }
             }
         } else {
             engine.recoverFiles(sessionId, fileIds, destination, preserve, skipDuplicates) {
-                setForeground(createForegroundInfo(it.current, it.total))
-                setProgress(
-                    workDataOf(
-                        KEY_PROGRESS_CURRENT to it.current,
-                        KEY_PROGRESS_TOTAL to it.total,
-                        KEY_PROGRESS_NAME to it.currentName,
-                        KEY_PROGRESS_FOLDER to it.currentFolder
-                    )
-                )
+                // كبح تحديث الإشعار: نشره لكل ملف يضغط على النظام بلا داعٍ
+                val now = System.currentTimeMillis()
+                val isEdge = it.current <= 1 || it.current == it.total
+                if (isEdge || now - lastUpdate >= NOTIFICATION_INTERVAL_MS) {
+                    lastUpdate = now
+                    runCatching { setForeground(createForegroundInfo(it.current, it.total)) }
+                    runCatching {
+                        setProgress(
+                            workDataOf(
+                                KEY_PROGRESS_CURRENT to it.current,
+                                KEY_PROGRESS_TOTAL to it.total,
+                                KEY_PROGRESS_NAME to it.currentName,
+                                KEY_PROGRESS_FOLDER to it.currentFolder
+                            )
+                        )
+                    }
+                }
             }
         }
 
@@ -84,7 +101,7 @@ class RecoveryWorker(
             .Builder(context, DeepRecoveryApp.CHANNEL_RECOVERY)
             .setContentTitle(context.getString(R.string.notif_recovery_title))
             .setContentText(context.getString(R.string.notif_recovery_text, current, total))
-            .setSmallIcon(R.drawable.ic_restore)
+            .setSmallIcon(R.drawable.ic_notification_restore)
             .setOngoing(true)
             .setProgress(total.coerceAtLeast(1), current, total == 0)
             .setOnlyAlertOnce(true)
@@ -104,6 +121,7 @@ class RecoveryWorker(
     companion object {
         const val WORK_NAME = "recovery"
         const val NOTIFICATION_ID = 4202
+        private const val NOTIFICATION_INTERVAL_MS = 400L
 
         const val KEY_SESSION_ID = "session_id"
         const val KEY_DESTINATION = "destination"

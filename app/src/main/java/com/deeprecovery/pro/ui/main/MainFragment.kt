@@ -24,6 +24,7 @@ import com.deeprecovery.pro.data.model.ScanMode
 import com.deeprecovery.pro.databinding.FragmentMainBinding
 import com.deeprecovery.pro.databinding.ItemLocationBinding
 import com.deeprecovery.pro.ui.common.InfoDialogs
+import com.deeprecovery.pro.util.CrashReporter
 import com.deeprecovery.pro.util.FormatUtils
 import com.deeprecovery.pro.util.StorageUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -65,12 +66,21 @@ class MainFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupListeners()
         observeState()
+        maybeShowCrashReport()
         maybeShowDisclaimer()
     }
 
     override fun onResume() {
         super.onResume()
         viewModel.refresh()
+    }
+
+    /** إذا انهار التطبيق في التشغيل السابق نعرض التفاصيل مرة واحدة. */
+    private fun maybeShowCrashReport() {
+        val context = requireContext()
+        if (!CrashReporter.hasPendingReport(context)) return
+        CrashReporter.consumeReport(context)
+        InfoDialogs.showCrashReport(context)
     }
 
     private fun maybeShowDisclaimer() {

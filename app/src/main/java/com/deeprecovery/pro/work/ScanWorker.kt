@@ -20,6 +20,7 @@ import com.deeprecovery.pro.data.model.ScanMode
 import com.deeprecovery.pro.engine.scanner.DeepScanEngine
 import com.deeprecovery.pro.engine.scanner.ScanRequest
 import com.deeprecovery.pro.ui.main.MainActivity
+import com.deeprecovery.pro.util.CrashReporter
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
@@ -50,17 +51,27 @@ class ScanWorker(
         val resumeSessionId = inputData.getLong(KEY_SESSION_ID, -1L)
 
         val engine = ScanController.attach(applicationContext)
-        setForeground(createForegroundInfo(0, 0))
+        CrashReporter.markScanStarted(applicationContext)
+        runCatching { setForeground(createForegroundInfo(0, 0)) }
 
+        // تحديث الإشعار وحالة العمل مرة كل ثانية على الأكثر.
+        // بلا هذا الكبح يُعاد نشر الإشعار آلاف المرات أثناء الفحص، وبعض
+        // أنظمة المصنّعين تقتل التطبيق بسبب هذا الضغط.
         val reporter = launch {
+            var lastUpdate = 0L
             engine.progress.collectLatest { progress ->
-                setProgress(
-                    workDataOf(
-                        KEY_PROGRESS_PERCENT to progress.percent,
-                        KEY_PROGRESS_FILES to progress.filesFound,
-                        KEY_SESSION_ID to progress.sessionId
+                val now = System.currentTimeMillis()
+                if (now - lastUpdate < NOTIFICATION_INTERVAL_MS) return@collectLatest
+                lastUpdate = now
+                runCatching {
+                    setProgress(
+                        workDataOf(
+                            KEY_PROGRESS_PERCENT to progress.percent,
+                            KEY_PROGRESS_FILES to progress.filesFound,
+                            KEY_SESSION_ID to progress.sessionId
+                        )
                     )
-                )
+                }
                 runCatching {
                     setForeground(createForegroundInfo(progress.percent, progress.filesFound))
                 }
@@ -72,6 +83,7 @@ class ScanWorker(
         } finally {
             reporter.cancel()
             ScanController.detach()
+            CrashReporter.markScanFinished(applicationContext)
         }
 
         val prefs = (applicationContext as DeepRecoveryApp).repository.prefs
@@ -96,7 +108,7 @@ class ScanWorker(
             .Builder(context, DeepRecoveryApp.CHANNEL_SCAN)
             .setContentTitle(context.getString(R.string.notif_scan_title))
             .setContentText(context.getString(R.string.notif_scan_text, percent, files))
-            .setSmallIcon(R.drawable.ic_scan)
+            .setSmallIcon(R.drawable.ic_notification_scan)
             .setOngoing(true)
             .setProgress(100, percent, percent == 0)
             .setContentIntent(pending)
@@ -113,6 +125,7 @@ class ScanWorker(
     companion object {
         const val WORK_NAME = "deep_scan"
         const val NOTIFICATION_ID = 4201
+        private const val NOTIFICATION_INTERVAL_MS = 1000L
 
         const val KEY_MODE = "mode"
         const val KEY_DEPTH = "depth"

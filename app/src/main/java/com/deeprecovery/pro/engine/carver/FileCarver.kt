@@ -44,8 +44,12 @@ class FileCarver(
 ) {
 
     companion object {
-        const val CHUNK_SIZE = 4 * 1024 * 1024
-        private const val COPY_BUFFER = 256 * 1024
+        /**
+         * حجم قطعة القراءة. أبقيناه معتدلاً عمداً: القطع الكبيرة مع الصور
+         * المصغّرة وذاكرة Room تدفع الأجهزة محدودة الذاكرة إلى OutOfMemory.
+         */
+        const val CHUNK_SIZE = 2 * 1024 * 1024
+        private const val COPY_BUFFER = 128 * 1024
 
         private val carvers: Map<String, Carver> = listOf(
             JpegCarver, PngCarver, RiffCarver, IsoBmffCarver, MatroskaCarver
@@ -73,6 +77,7 @@ class FileCarver(
         source: RawSource,
         startOffset: Long = 0L,
         stats: Stats = Stats(),
+        skipSelfAtOffsetZero: Boolean = false,
         onProgress: suspend (processedBytes: Long, absolutePosition: Long) -> Unit,
         onFile: suspend (CarvedFile) -> Unit
     ): Stats {
@@ -101,6 +106,14 @@ class FileCarver(
 
                 val signature = signatures.firstOrNull { it.matchesAt(buffer, i, read) }
                 if (signature == null) {
+                    i++
+                    continue
+                }
+
+                // عند النحت داخل ملف قائم، التوقيع عند الإزاحة 0 هو الملف
+                // نفسه وليس بقايا ملف محذوف — نتخطاه حتى لا ننسخ كل صور
+                // الجهاز إلى مساحة العمل ونملأ التخزين.
+                if (skipSelfAtOffsetZero && absolute == 0L) {
                     i++
                     continue
                 }
@@ -156,7 +169,11 @@ class FileCarver(
             return null
         }
 
-        val validation = MediaValidator.validate(target, signature.mediaType)
+        val validation = MediaValidator.validate(
+            target,
+            signature.mediaType,
+            extent.structureConfidence
+        )
 
         // نتجاهل البقايا التالفة تماماً: لا تُفكّ ولا تملك بنية معقولة
         if (!validation.decodable && extent.structureConfidence < 30) {
