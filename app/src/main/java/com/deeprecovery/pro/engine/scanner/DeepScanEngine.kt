@@ -290,23 +290,6 @@ class DeepScanEngine(private val context: Context) {
             }
         }
 
-        // مرحلة القياس: تعطي مقاماً حقيقياً لنسبة الإنجاز بدل سعة القرص
-        val measuring = sources.filterIsInstance<ScanSource.Directory>()
-        if (measuring.isNotEmpty()) {
-            emitStage(R.string.stage_measuring, "")
-            val scanner = FileSystemScanner()
-            for (source in measuring) {
-                checkPause()
-                val measurement = runCatching {
-                    scanner.measure(source.dirs, MIN_CARVE_TARGET, MAX_CARVE_CANDIDATES)
-                }.getOrDefault(WalkMeasurement())
-
-                source.totalBytes = measurement.totalBytes
-                source.carveBytes =
-                    if (request.depth == ScanDepth.QUICK) 0L else measurement.carveBytes
-            }
-        }
-
         // نسجّل الأهداف لتتبع التقدّم والاستئناف
         sources.forEach { source ->
             targetDao.insert(
@@ -362,8 +345,9 @@ class DeepScanEngine(private val context: Context) {
                         carveCandidates += file
                     }
                     bumpProcessed(file.length())
-                    // بدون هذا يبقى الوقت المنقضي والنسبة جامدين طوال
-                    // أطول مرحلة في الفحص فيبدو التطبيق معلّقاً
+                    countScanned(file)
+                    // بدون هذا يبقى الوقت المنقضي جامداً طوال أطول مرحلة
+                    // في الفحص فيبدو التطبيق معلّقاً
                     emitProgress()
                 },
                 onFile = { discovered ->
@@ -376,7 +360,7 @@ class DeepScanEngine(private val context: Context) {
         if (request.depth != ScanDepth.QUICK) {
             emitStage(R.string.stage_carving, source.label)
             val carver = buildCarver(request)
-            for (file in carveCandidates.take(MAX_CARVE_CANDIDATES)) {
+            for (file in prioritizeCarveCandidates(carveCandidates)) {
                 checkPause()
                 if (!hasRoomForStaging()) break
                 try {
@@ -434,6 +418,14 @@ class DeepScanEngine(private val context: Context) {
         }
         target?.let { targetDao.markCompleted(it.id) }
     }
+
+    /** انظر [CarvePriority] لسبب هذا الترتيب. */
+    private fun prioritizeCarveCandidates(candidates: List<File>): List<File> = candidates
+        .sortedWith(
+            compareByDescending<File> { CarvePriority.of(it.absolutePath) }
+                .thenByDescending { it.length() }
+        )
+        .take(MAX_CARVE_CANDIDATES)
 
     private fun buildCarver(request: ScanRequest) = FileCarver(
         stagingDir = StorageUtils.stagingDir(context),
@@ -576,6 +568,22 @@ class DeepScanEngine(private val context: Context) {
             videosFound = current.videosFound + if (mediaType == MediaType.VIDEO) 1 else 0,
             duplicatesFound = current.duplicatesFound + if (duplicate) 1 else 0,
             foldersFound = seenFolders.size
+        )
+    }
+
+    /**
+     * يسجّل ملفاً تمت معالجته.
+     *
+     * هذا هو مؤشر الحياة الحقيقي للفحص: حجم التخزين الذي سنمرّ عليه غير
+     * معروف مسبقاً، فعرض نسبة مئوية عليه تخمين. عدّاد الملفات المفحوصة
+     * والمسار الحالي يخبران المستخدم بما يجري فعلاً.
+     */
+    private fun countScanned(file: File) {
+        val current = _progress.value
+        val parent = file.parent
+        _progress.value = current.copy(
+            filesScanned = current.filesScanned + 1,
+            currentSource = parent ?: current.currentSource
         )
     }
 

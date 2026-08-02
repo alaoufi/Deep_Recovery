@@ -10,6 +10,7 @@ data class ScanProgress(
     val stageLabelRes: Int = 0,
     val processedBytes: Long = 0,
     val totalBytes: Long = 0,
+    val filesScanned: Int = 0,
     val filesFound: Int = 0,
     val imagesFound: Int = 0,
     val videosFound: Int = 0,
@@ -26,4 +27,12 @@ data class ScanProgress(
 
     val isActive: Boolean
         get() = status == ScanStatus.RUNNING || status == ScanStatus.PAUSED
+
+    /**
+     * لا نعرف حجم ما سنمرّ عليه مسبقاً في فحص المجلدات، فأي نسبة مئوية
+     * هنا تخمين. في هذه الحالة نعرض مؤشراً حيّاً وعدّاد ملفات بدل نسبة
+     * جامدة على الصفر توحي بأن التطبيق معلّق.
+     */
+    val isIndeterminate: Boolean
+        get() = totalBytes <= 0
 }

@@ -20,6 +20,7 @@ import com.deeprecovery.pro.databinding.FragmentScanBinding
 import com.deeprecovery.pro.engine.scanner.ScanProgress
 import com.deeprecovery.pro.engine.scanner.ScanRequest
 import com.deeprecovery.pro.util.FormatUtils
+import com.deeprecovery.pro.util.StorageUtils
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -60,7 +61,16 @@ class ScanFragment : Fragment() {
     }
 
     private fun setupLabels() = with(binding) {
+        accessStatusText.setText(
+            if (StorageUtils.hasAllFilesAccess()) {
+                R.string.scan_access_full
+            } else {
+                R.string.scan_access_limited
+            }
+        )
+        percentUnitText.setText(R.string.scan_files_scanned_unit)
         statFiles.statLabel.setText(R.string.scan_files_found)
+        statScanned.statLabel.setText(R.string.scan_files_scanned)
         statImages.statLabel.setText(R.string.scan_images_found)
         statVideos.statLabel.setText(R.string.scan_videos_found)
         statFolders.statLabel.setText(R.string.scan_folders_found)
@@ -119,12 +129,29 @@ class ScanFragment : Fragment() {
     }
 
     private fun render(progress: ScanProgress) = with(binding) {
-        progressCircle.setProgressCompat(progress.percent, true)
-        percentText.text = getString(R.string.scan_percent, progress.percent)
+        // حجم ما سنمرّ عليه غير معروف مسبقاً في فحص المجلدات، فعرض نسبة
+        // مئوية عليه تخمين يظهر جامداً على الصفر. نعرض بدلها مؤشراً حيّاً
+        // مع عدّاد الملفات التي تم فحصها فعلاً.
+        val indeterminate = progress.isIndeterminate && !progress.status.isTerminal
+        if (progressCircle.isIndeterminate != indeterminate) {
+            progressCircle.visibility = View.GONE
+            progressCircle.isIndeterminate = indeterminate
+            progressCircle.visibility = View.VISIBLE
+        }
+
+        if (indeterminate) {
+            percentText.text = progress.filesScanned.toString()
+            percentUnitText.visibility = View.VISIBLE
+        } else {
+            progressCircle.setProgressCompat(progress.percent, true)
+            percentText.text = getString(R.string.scan_percent, progress.percent)
+            percentUnitText.visibility = View.GONE
+        }
 
         if (progress.stageLabelRes != 0) stageText.setText(progress.stageLabelRes)
         currentSourceText.text = progress.currentSource
 
+        statScanned.statValue.text = progress.filesScanned.toString()
         statFiles.statValue.text = progress.filesFound.toString()
         statImages.statValue.text = progress.imagesFound.toString()
         statVideos.statValue.text = progress.videosFound.toString()

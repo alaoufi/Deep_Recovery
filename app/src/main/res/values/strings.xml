@@ -49,6 +49,10 @@
     <string name="scan_title">جارٍ الفحص</string>
     <string name="scan_percent">%1$d%%</string>
     <string name="scan_files_found">الملفات المكتشفة</string>
+    <string name="scan_files_scanned">تم فحصها</string>
+    <string name="scan_files_scanned_unit">ملف</string>
+    <string name="scan_access_full">الوصول لكل الملفات: ممنوح</string>
+    <string name="scan_access_limited">الوصول لكل الملفات: غير ممنوح — النتائج ستكون قليلة جداً</string>
     <string name="scan_images_found">صور</string>
     <string name="scan_videos_found">فيديو</string>
     <string name="scan_folders_found">مجلدات</string>
@@ -65,7 +69,6 @@
     <string name="scan_failed">تعذّر إكمال الفحص</string>
 
     <string name="stage_preparing">تجهيز الفحص…</string>
-    <string name="stage_measuring">حساب حجم الفحص…</string>
     <string name="stage_mediastore">تحليل Media Store…</string>
     <string name="stage_folders">فحص المجلدات…</string>
     <string name="stage_carving">استخراج الملفات من البيانات الخام…</string>
