@@ -43,6 +43,31 @@ class MainFragment : Fragment() {
     private val viewModel: MainViewModel by viewModels()
     private var bindingLocations = false
 
+    /**
+     * اختيار مجلد بعينه عبر Storage Access Framework.
+     *
+     * يحوَّل عنوان الشجرة إلى مسار حقيقي ليمرّ عليه الماسح مباشرة، فيصبح
+     * الفحص محصوراً فيما اختاره المستخدم وسريعاً.
+     */
+    private val pickFolder = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val documentId = runCatching {
+            android.provider.DocumentsContract.getTreeDocumentId(uri)
+        }.getOrNull()
+        val path = documentId?.let { StorageUtils.pathFromTreeUri(it) }
+
+        if (path == null || !java.io.File(path).isDirectory) {
+            Snackbar.make(binding.root, R.string.pick_folder_invalid, Snackbar.LENGTH_LONG).show()
+            return@registerForActivityResult
+        }
+        prefs.addCustomFolder(path)
+        renderCustomFolders()
+    }
+
+    private val prefs by lazy { com.deeprecovery.pro.DeepRecoveryApp.instance.repository.prefs }
+
     private val mediaPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
@@ -122,6 +147,13 @@ class MainFragment : Fragment() {
 
         grantAllFilesButton.setOnClickListener { openAllFilesSettings() }
 
+        pickFolderButton.setOnClickListener { pickFolder.launch(null) }
+
+        ignoreScreenshotsCheck.isChecked = prefs.ignoreScreenshots
+        ignoreScreenshotsCheck.setOnCheckedChangeListener { _, checked ->
+            prefs.ignoreScreenshots = checked
+        }
+
         resumeScanButton.setOnClickListener {
             val id = viewModel.state.value.resumableSessionId
             navigateToScan(id)
@@ -184,6 +216,31 @@ class MainFragment : Fragment() {
             if (state.lastSessionId > 0) View.VISIBLE else View.GONE
 
         renderLocations(state)
+        renderCustomFolders()
+    }
+
+    /** يعرض المجلدات المختارة كرقائق قابلة للإزالة. */
+    private fun renderCustomFolders() {
+        val group = binding.customFoldersGroup
+        val folders = prefs.customFolders.toList().sorted()
+        group.removeAllViews()
+
+        folders.forEach { path ->
+            val chip = com.google.android.material.chip.Chip(requireContext()).apply {
+                text = path.substringAfterLast('/').ifEmpty { path }
+                isCloseIconVisible = true
+                setOnCloseIconClickListener {
+                    prefs.removeCustomFolder(path)
+                    renderCustomFolders()
+                }
+            }
+            group.addView(chip)
+        }
+
+        binding.customFoldersHint.visibility =
+            if (folders.isEmpty()) View.GONE else View.VISIBLE
+        // عند تحديد مجلد بعينه لا معنى لخيارات الأماكن الجاهزة
+        binding.locationsContainer.alpha = if (folders.isEmpty()) 1f else 0.4f
     }
 
     private fun renderLocations(state: MainUiState) {

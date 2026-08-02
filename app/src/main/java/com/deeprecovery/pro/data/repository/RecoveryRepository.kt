@@ -20,7 +20,9 @@ data class ResultFilter(
     val mediaType: MediaType? = null,
     val folderPath: String? = null,
     val minQuality: RecoveryQuality? = null,
-    val hideDuplicates: Boolean = false
+    val hideDuplicates: Boolean = false,
+    /** الأقدم أولاً هو الافتراضي — الترتيب الزمني الطبيعي للصور. */
+    val oldestFirst: Boolean = true
 )
 
 /** طبقة الوصول الوحيدة للبيانات — كل شيء محلي داخل الجهاز. */
@@ -50,7 +52,8 @@ class RecoveryRepository(context: Context) {
             folderPath = filter.folderPath,
             minQuality = filter.minQuality,
             minConfidence = filter.minQuality?.minConfidence ?: 0,
-            hideDuplicates = filter.hideDuplicates
+            hideDuplicates = filter.hideDuplicates,
+            oldestFirst = filter.oldestFirst
         )
 
     fun observeFolders(sessionId: Long, hideDuplicates: Boolean): Flow<List<FolderSummary>> =

@@ -60,7 +60,11 @@ class FileSystemScanner {
      * يتجاهل الروابط الدائرية عبر المسارات المعيارية، ولا يدخل مساحة عمل
      * التطبيق حتى لا يفحص ما استخرجه بنفسه.
      */
-    private suspend fun traverse(roots: List<File>, onFile: suspend (File) -> Unit) {
+    private suspend fun traverse(
+        roots: List<File>,
+        excludedDirNames: Set<String> = emptySet(),
+        onFile: suspend (File) -> Unit
+    ) {
         val stack = ArrayDeque<Pair<File, Int>>()
         val visited = mutableSetOf<String>()
         roots.forEach { if (it.isDirectory) stack.addLast(it to 0) }
@@ -78,7 +82,11 @@ class FileSystemScanner {
             for (child in children) {
                 coroutineContext.ensureActive()
                 when {
-                    child.isDirectory -> stack.addLast(child to depth + 1)
+                    child.isDirectory -> {
+                        if (child.name.lowercase() !in excludedDirNames) {
+                            stack.addLast(child to depth + 1)
+                        }
+                    }
                     child.isFile -> onFile(child)
                 }
             }
@@ -124,13 +132,14 @@ class FileSystemScanner {
         roots: List<File>,
         includeImages: Boolean,
         includeVideos: Boolean,
+        excludedDirNames: Set<String> = emptySet(),
         onProgressFile: suspend (File) -> Unit = {},
         onFile: suspend (DiscoveredFile) -> Unit
     ) {
         val signatures = SignatureRegistry.signaturesFor(includeImages, includeVideos)
         val header = ByteArray(SignatureRegistry.maxSignatureSpan + 8)
 
-        traverse(roots) { file ->
+        traverse(roots, excludedDirNames) { file ->
             onProgressFile(file)
             inspect(file, signatures, header)?.let { onFile(it) }
         }
@@ -195,7 +204,8 @@ class FileSystemScanner {
             durationMs = validation.durationMs,
             confidence = confidence,
             quality = RecoveryQuality.fromConfidence(confidence),
-            note = if (looksDeleted) "deleted-marker" else "ext-mismatch"
+            note = if (looksDeleted) "deleted-marker" else "ext-mismatch",
+            createdAt = runCatching { file.lastModified() }.getOrDefault(0L)
         )
     }
 

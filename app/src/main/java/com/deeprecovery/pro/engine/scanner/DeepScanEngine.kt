@@ -40,7 +40,14 @@ data class ScanRequest(
     val locations: Set<ScanLocation>,
     val includeImages: Boolean,
     val includeVideos: Boolean,
-    val detectDuplicates: Boolean = true
+    val detectDuplicates: Boolean = true,
+    /**
+     * مجلدات اختارها المستخدم بنفسه. عند وجودها يقتصر الفحص عليها،
+     * فيصبح محصوراً فيما يريده بالضبط وسريعاً.
+     */
+    val customFolders: Set<String> = emptySet(),
+    /** تجاهل مجلدات لقطات الشاشة وتسجيلها. */
+    val ignoreScreenshots: Boolean = true
 )
 
 /**
@@ -271,7 +278,19 @@ class DeepScanEngine(private val context: Context) {
         val targets = StorageUtils.resolveTargets(context)
             .filter { it.available && it.location in request.locations }
 
-        if (request.depth == ScanDepth.QUICK) {
+        val custom = request.customFolders
+            .map(::File)
+            .filter { it.isDirectory }
+
+        if (custom.isNotEmpty()) {
+            // اختيار المستخدم يتقدّم على كل شيء: نفحص ما طلبه فقط
+            sources += ScanSource.Directory(
+                key = "dir:custom",
+                label = custom.joinToString(", ") { it.name },
+                dirs = custom,
+                location = ScanLocation.INTERNAL_STORAGE
+            )
+        } else if (request.depth == ScanDepth.QUICK) {
             // الفحص السريع لا يمرّ على التخزين كاملاً: يقتصر على الأماكن
             // التي قد تحتوي بقايا محذوفة فعلاً
             val volumes = buildList {
@@ -357,6 +376,11 @@ class DeepScanEngine(private val context: Context) {
                 roots = source.dirs,
                 includeImages = request.includeImages,
                 includeVideos = request.includeVideos,
+                excludedDirNames = if (request.ignoreScreenshots) {
+                    StorageUtils.SCREENSHOT_DIR_NAMES
+                } else {
+                    emptySet()
+                },
                 onProgressFile = { file ->
                     checkPause()
                     if (file.length() >= MIN_CARVE_TARGET) {
@@ -518,6 +542,7 @@ class DeepScanEngine(private val context: Context) {
             widthPx = discovered.width,
             heightPx = discovered.height,
             durationMs = discovered.durationMs,
+            createdAt = discovered.createdAt,
             discoveredAt = System.currentTimeMillis(),
             contentHash = hash,
             isDuplicate = duplicateOf != null,

@@ -17,7 +17,6 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.deeprecovery.pro.R
 import com.deeprecovery.pro.data.db.RecoveredFileEntity
-import com.deeprecovery.pro.data.model.MediaType
 import com.deeprecovery.pro.data.model.RecoveryQuality
 import com.deeprecovery.pro.databinding.FragmentPreviewBinding
 import com.deeprecovery.pro.ui.recovery.RecoverySheet
@@ -37,6 +36,7 @@ class PreviewFragment : Fragment() {
     private val viewModel: PreviewViewModel by viewModels()
     private var player: ExoPlayer? = null
     private var currentFile: RecoveredFileEntity? = null
+    private lateinit var pagerAdapter: PreviewPagerAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -51,10 +51,35 @@ class PreviewFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val fileId = arguments?.getLong("fileId", -1L) ?: -1L
+
+        pagerAdapter = PreviewPagerAdapter { file, holder -> playVideo(file, holder) }
+        binding.previewPager.adapter = pagerAdapter
+        binding.previewPager.registerOnPageChangeCallback(
+            object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+                override fun onPageSelected(position: Int) {
+                    // فيديو صفحة سابقة يجب أن يتوقف عند مغادرتها
+                    releasePlayer()
+                    pagerAdapter.currentList.getOrNull(position)?.let {
+                        currentFile = it
+                        render(it)
+                    }
+                }
+            }
+        )
+
         viewLifecycleOwner.lifecycleScope.launch {
             val file = viewModel.load(fileId) ?: return@launch
             currentFile = file
             render(file)
+
+            // معرض كامل: كل نتائج الجلسة قابلة للتمرير من نفس الشاشة
+            val siblings = viewModel.loadSiblings(file.sessionId)
+            val list = siblings.ifEmpty { listOf(file) }
+            pagerAdapter.submitList(list) {
+                val index = list.indexOfFirst { it.id == file.id }.coerceAtLeast(0)
+                binding.previewPager.setCurrentItem(index, false)
+                updateIndicator(index, list.size)
+            }
         }
 
         binding.recoverThisButton.setOnClickListener {
@@ -64,7 +89,14 @@ class PreviewFragment : Fragment() {
         }
     }
 
+    private fun updateIndicator(index: Int, total: Int) {
+        binding.pageIndicator.text = getString(R.string.preview_position, index + 1, total)
+    }
+
     private fun render(file: RecoveredFileEntity) = with(binding) {
+        val position = pagerAdapter.currentList.indexOfFirst { it.id == file.id }
+        if (position >= 0) updateIndicator(position, pagerAdapter.itemCount)
+
         previewName.text = file.displayName
 
         previewQuality.text = getString(file.quality.labelRes) +
@@ -73,39 +105,32 @@ class PreviewFragment : Fragment() {
             ContextCompat.getColor(requireContext(), qualityColor(file.quality))
         )
 
-        // Uri أولاً: المسار المباشر محجوب على أندرويد 10+
-        val uri = file.contentUri?.let(Uri::parse)
-            ?: file.stagedPath?.let(::File)?.takeIf { it.exists() }?.let(Uri::fromFile)
-
-        if (file.mediaType == MediaType.VIDEO && uri != null) {
-            showVideo(uri)
-        } else {
-            showImage(uri)
-        }
-
         buildInfoTable(file)
     }
 
-    private fun showImage(source: Uri?) = with(binding) {
-        playerView.visibility = View.GONE
-        imagePreview.visibility = View.VISIBLE
-        Glide.with(imagePreview)
-            .load(source)
-            .diskCacheStrategy(DiskCacheStrategy.NONE)
-            .error(R.drawable.ic_broken_image)
-            .into(imagePreview)
-    }
+    /** يشغّل الفيديو داخل صفحته الحالية فقط. */
+    private fun playVideo(file: RecoveredFileEntity, holder: PreviewPagerAdapter.PageHolder) {
+        val uri = file.contentUri?.let(Uri::parse)
+            ?: file.stagedPath?.let(::File)?.takeIf { it.exists() }?.let(Uri::fromFile)
+            ?: return
 
-    private fun showVideo(source: Uri) = with(binding) {
-        imagePreview.visibility = View.GONE
-        playerView.visibility = View.VISIBLE
-
+        releasePlayer()
         val exoPlayer = ExoPlayer.Builder(requireContext()).build()
         player = exoPlayer
-        playerView.player = exoPlayer
-        exoPlayer.setMediaItem(MediaItem.fromUri(source))
+
+        holder.binding.pageImage.visibility = View.GONE
+        holder.binding.pagePlayBadge.visibility = View.GONE
+        holder.binding.pagePlayer.visibility = View.VISIBLE
+        holder.binding.pagePlayer.player = exoPlayer
+
+        exoPlayer.setMediaItem(MediaItem.fromUri(uri))
         exoPlayer.prepare()
-        exoPlayer.playWhenReady = false
+        exoPlayer.playWhenReady = true
+    }
+
+    private fun releasePlayer() {
+        player?.release()
+        player = null
     }
 
     private fun buildInfoTable(file: RecoveredFileEntity) {
@@ -159,8 +184,7 @@ class PreviewFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        player?.release()
-        player = null
+        releasePlayer()
         _binding = null
     }
 }

@@ -23,7 +23,9 @@ data class DiscoveredFile(
     val durationMs: Long,
     val confidence: Int,
     val quality: RecoveryQuality,
-    val note: String
+    val note: String,
+    /** تاريخ إنشاء الملف الأصلي بالمللي ثانية. */
+    val createdAt: Long = 0
 )
 
 /**
@@ -65,7 +67,8 @@ class MediaStoreScanner(private val context: Context) {
             MediaStore.MediaColumns.HEIGHT,
             MediaStore.MediaColumns.DURATION,
             MediaStore.MediaColumns.IS_TRASHED,
-            MediaStore.MediaColumns.IS_PENDING
+            MediaStore.MediaColumns.IS_PENDING,
+            MediaStore.MediaColumns.DATE_ADDED
         )
 
         val args = android.os.Bundle().apply {
@@ -90,6 +93,7 @@ class MediaStoreScanner(private val context: Context) {
                 val heightCol = cursor.getColumnIndex(MediaStore.MediaColumns.HEIGHT)
                 val durationCol = cursor.getColumnIndex(MediaStore.MediaColumns.DURATION)
                 val trashedCol = cursor.getColumnIndex(MediaStore.MediaColumns.IS_TRASHED)
+                val dateCol = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_ADDED)
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
@@ -115,7 +119,10 @@ class MediaStoreScanner(private val context: Context) {
                         durationMs = durationCol.takeIf { it >= 0 }?.let { cursor.getLong(it) } ?: 0L,
                         confidence = if (trashed) 95 else 80,
                         quality = if (trashed) RecoveryQuality.EXCELLENT else RecoveryQuality.GOOD,
-                        note = if (trashed) "trashed" else "pending"
+                        note = if (trashed) "trashed" else "pending",
+                        // DATE_ADDED بالثواني
+                        createdAt = dateCol.takeIf { it >= 0 }
+                            ?.let { cursor.getLong(it) * 1000L } ?: 0L
                     )
                 }
             }

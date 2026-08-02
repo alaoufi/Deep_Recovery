@@ -13,27 +13,28 @@
         android:orientation="vertical">
 
         <FrameLayout
-            android:id="@+id/mediaContainer"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:background="#000000">
 
-            <ImageView
-                android:id="@+id/imagePreview"
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/previewPager"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:adjustViewBounds="true"
-                android:contentDescription="@string/preview_title"
-                android:scaleType="fitCenter" />
+                android:layout_height="match_parent" />
 
-            <androidx.media3.ui.PlayerView
-                android:id="@+id/playerView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="gone"
-                app:resize_mode="fit"
-                app:use_controller="true" />
+            <TextView
+                android:id="@+id/pageIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|center_horizontal"
+                android:layout_margin="12dp"
+                android:background="@drawable/bg_duration_badge"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                tools:text="3 / 128" />
 
         </FrameLayout>
 

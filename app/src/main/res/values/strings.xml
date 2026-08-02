@@ -13,6 +13,13 @@
     <string name="section_scan_type">نوع الفحص</string>
     <string name="section_media_type">نوع الملفات</string>
     <string name="section_locations">مكان الفحص</string>
+    <string name="pick_folder">اختيار مجلد محدد</string>
+    <string name="pick_folder_desc">اختر مجلداً بعينه — حتى المجلدات الخاصة — ويقتصر الفحص عليه فيصبح سريعاً ومحصوراً فيما تريد.</string>
+    <string name="pick_folder_active">الفحص محصور في المجلدات المختارة فقط</string>
+    <string name="pick_folder_remove">إزالة</string>
+    <string name="pick_folder_invalid">تعذّر تحديد مسار هذا المجلد</string>
+    <string name="ignore_screenshots">تجاهل لقطات الشاشة</string>
+    <string name="results_view_grid">شبكة</string>
     <string name="media_images">الصور</string>
     <string name="media_videos">الفيديوهات</string>
     <string name="free_space">المساحة المتاحة للعمل: %1$s</string>
@@ -115,6 +122,7 @@
 
     <!-- المعاينة -->
     <string name="preview_title">معاينة</string>
+    <string name="preview_position">%1$d / %2$d</string>
     <string name="preview_play">تشغيل</string>
     <string name="preview_pause">إيقاف</string>
     <string name="preview_info">تفاصيل الملف</string>

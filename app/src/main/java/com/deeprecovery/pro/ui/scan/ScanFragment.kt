@@ -94,7 +94,9 @@ class ScanFragment : Fragment() {
             depth = depth,
             locations = locations,
             includeImages = prefs.includeImages,
-            includeVideos = prefs.includeVideos
+            includeVideos = prefs.includeVideos,
+            customFolders = prefs.customFolders,
+            ignoreScreenshots = prefs.ignoreScreenshots
         )
     }
 

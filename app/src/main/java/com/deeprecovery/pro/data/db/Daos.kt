@@ -120,7 +120,9 @@ interface RecoveredFileDao {
           AND (:folderPath IS NULL OR folderPath = :folderPath)
           AND (:minQuality IS NULL OR confidence >= :minConfidence)
           AND (:hideDuplicates = 0 OR isDuplicate = 0)
-        ORDER BY confidence DESC, sizeBytes DESC
+        ORDER BY CASE WHEN :oldestFirst = 1 THEN COALESCE(NULLIF(createdAt, 0), discoveredAt) END ASC,
+                 CASE WHEN :oldestFirst = 0 THEN COALESCE(NULLIF(createdAt, 0), discoveredAt) END DESC,
+                 id ASC
         """
     )
     fun observeFiltered(
@@ -130,7 +132,8 @@ interface RecoveredFileDao {
         folderPath: String?,
         minQuality: RecoveryQuality?,
         minConfidence: Int,
-        hideDuplicates: Boolean
+        hideDuplicates: Boolean,
+        oldestFirst: Boolean
     ): Flow<List<RecoveredFileEntity>>
 
     /** كل ملفات مجلد معيّن — أساس استعادة المجلد كاملاً بما فيه. */

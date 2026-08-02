@@ -13,6 +13,10 @@ import org.junit.Test
  */
 class StorageUtilsTest {
 
+    /** جذر التخزين يُمرَّر صراحةً: استدعاء إطار أندرويد غير متاح هنا. */
+    private val INTERNAL_ROOT = "/storage/emulated/0"
+
+
     @Test
     fun `يبقي الجذر الاعلى ويحذف الفروع المتداخلة`() {
         val result = StorageUtils.dedupeOverlappingPaths(
@@ -44,6 +48,32 @@ class StorageUtilsTest {
             listOf("/storage/emulated/0/DCIM", "/storage/emulated/0/DCIM2")
         )
         assertEquals(2, result.size)
+    }
+
+    @Test
+    fun treeUriMapsToRealPath() {
+        assertEquals(
+            "/storage/emulated/0/DCIM/Camera",
+            StorageUtils.pathFromTreeUri("primary:DCIM/Camera", INTERNAL_ROOT)
+        )
+        assertEquals(
+            "/storage/1234-5678/Private",
+            StorageUtils.pathFromTreeUri("1234-5678:Private", INTERNAL_ROOT)
+        )
+    }
+
+    @Test
+    fun treeUriRejectsMalformedIds() {
+        assertEquals(null, StorageUtils.pathFromTreeUri("primary", INTERNAL_ROOT))
+        assertEquals(null, StorageUtils.pathFromTreeUri("", INTERNAL_ROOT))
+    }
+
+    @Test
+    fun screenshotDirsAreRecognisedLowercase() {
+        assertTrue("screenshots" in StorageUtils.SCREENSHOT_DIR_NAMES)
+        assertTrue("screen recordings" in StorageUtils.SCREENSHOT_DIR_NAMES)
+        // المطابقة تتم على الاسم بحروف صغيرة
+        assertTrue(StorageUtils.SCREENSHOT_DIR_NAMES.all { it == it.lowercase() })
     }
 
     @Test

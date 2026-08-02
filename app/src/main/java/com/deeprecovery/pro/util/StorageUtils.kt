@@ -117,6 +117,36 @@ object StorageUtils {
 
     fun freeSpace(dir: File): Long = runCatching { dir.usableSpace }.getOrDefault(0L)
 
+    /** مجلدات لقطات الشاشة وتسجيلها — يُستثنى عادةً من الاستعادة. */
+    val SCREENSHOT_DIR_NAMES = setOf(
+        "screenshots", "screenshot", "screen recordings", "screenrecorder",
+        "screenrecord", "screen_recordings", "capture", "screencapture"
+    )
+
+    /**
+     * يحوّل عنوان شجرة من Storage Access Framework إلى مسار حقيقي.
+     *
+     * يمكّن المستخدم من اختيار أي مجلد على الجهاز بنفسه — بما فيها
+     * المجلدات الخاصة — بدل الاقتصار على أماكن جاهزة.
+     * يعيد null إذا كان العنوان لا يقابل مساراً على التخزين.
+     */
+    fun pathFromTreeUri(
+        treeDocumentId: String,
+        internalRootPath: String = internalRoot().absolutePath
+    ): String? {
+        val parts = treeDocumentId.split(':', limit = 2)
+        if (parts.size != 2) return null
+        val volume = parts[0]
+        val relative = parts[1].trim('/')
+
+        val base = when {
+            volume.equals("primary", ignoreCase = true) -> internalRootPath
+            volume.isNotEmpty() -> "/storage/$volume"
+            else -> return null
+        }
+        return if (relative.isEmpty()) base else "$base/$relative"
+    }
+
     /** مجلدات الوسائط التي يضع المستخدم صوره وفيديوهاته فيها. */
     private val MEDIA_DIRS = listOf(
         "DCIM", "Pictures", "Movies", "Download", "Downloads", "Camera"

@@ -107,6 +107,8 @@ data class RecoveredFileEntity(
     val heightPx: Int = 0,
     val durationMs: Long = 0,
 
+    /** تاريخ إنشاء الملف الأصلي — أساس الترتيب الزمني. */
+    val createdAt: Long = 0,
     val discoveredAt: Long,
     val contentHash: String? = null,
     val isDuplicate: Boolean = false,

@@ -132,6 +132,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         !_state.value.includeImages && !_state.value.includeVideos -> {
             com.deeprecovery.pro.R.string.error_no_media_type
         }
+        // اختيار مجلد بعينه يغني عن الأماكن الجاهزة
+        prefs.customFolders.isNotEmpty() -> null
         _state.value.selectedLocations.isEmpty() -> {
             com.deeprecovery.pro.R.string.error_no_location
         }
