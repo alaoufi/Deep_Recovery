@@ -68,6 +68,21 @@
             android:exported="false"
             tools:node="merge" />
 
+        <!--
+            إلزامي: خدمة WorkManager الأمامية مُعلَنة في بيان المكتبة بلا
+            foregroundServiceType. وبما أننا نمرّر النوع dataSync في
+            ForegroundInfo، يرفض النظام التشغيل ويرمي:
+              "foregroundServiceType 0x00000001 is not a subset of
+               foregroundServiceType attribute 0x00000000"
+            ويُرمى هذا الاستثناء على الخيط الرئيسي بشكل غير متزامن، فلا
+            يمكن التقاطه حول استدعاء setForeground — الحل الوحيد هو دمج
+            النوع هنا.
+        -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
     </application>
 
 </manifest>
