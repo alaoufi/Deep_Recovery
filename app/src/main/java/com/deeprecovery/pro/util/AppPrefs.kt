@@ -15,8 +15,9 @@ class AppPrefs(context: Context) {
         get() = ScanMode.fromName(prefs.getString(KEY_MODE, null))
         set(value) = prefs.edit { putString(KEY_MODE, value.name) }
 
+    /** الافتراضي: فحص موجّه لأماكن المحذوف — سريع ومفيد. */
     var scanDepth: ScanDepth
-        get() = ScanDepth.fromName(prefs.getString(KEY_DEPTH, null))
+        get() = ScanDepth.fromName(prefs.getString(KEY_DEPTH, ScanDepth.QUICK.name))
         set(value) = prefs.edit { putString(KEY_DEPTH, value.name) }
 
     var includeImages: Boolean

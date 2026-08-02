@@ -117,6 +117,45 @@ object StorageUtils {
 
     fun freeSpace(dir: File): Long = runCatching { dir.usableSpace }.getOrDefault(0L)
 
+    /** مجلدات الوسائط التي يضع المستخدم صوره وفيديوهاته فيها. */
+    private val MEDIA_DIRS = listOf(
+        "DCIM", "Pictures", "Movies", "Download", "Downloads", "Camera"
+    )
+
+    /** المجلدات التي تحتفظ ببقايا المحذوف. */
+    private val TRASH_DIRS = listOf(
+        "LOST.DIR", ".Trash", ".trash", ".thumbnails", ".Trash-1000"
+    )
+
+    /**
+     * أماكن بقايا الملفات المحذوفة فقط.
+     *
+     * المرور على التخزين كاملاً يعني عشرات آلاف الملفات — أغلبها بيانات
+     * تطبيقات لا علاقة لها بالوسائط — فيستغرق الفحص عشرات الدقائق بلا
+     * فائدة. أداة الاستعادة يجب أن تفحص ما قد يحتوي محذوفاً فقط:
+     * مجلدات الوسائط، وسلال المهملات، و LOST.DIR، وذاكرة المصغّرات.
+     */
+    fun recoveryHotspots(volumes: List<File>): List<File> =
+        dedupeOverlappingPaths(
+            volumes
+                .flatMap { hotspotPaths(it.absolutePath) }
+                .filter { File(it).isDirectory }
+        ).map(::File)
+
+    /** المسارات المرشّحة تحت جذر تخزين واحد — منفصلة لتكون قابلة للاختبار. */
+    fun hotspotPaths(root: String): List<String> {
+        val base = root.trimEnd('/')
+        val out = mutableListOf<String>()
+        TRASH_DIRS.forEach { out += "$base/$it" }
+        MEDIA_DIRS.forEach { media ->
+            out += "$base/$media"
+            TRASH_DIRS.forEach { out += "$base/$media/$it" }
+        }
+        WHATSAPP_ROOTS.forEach { out += "$base/$it" }
+        TELEGRAM_ROOTS.forEach { out += "$base/$it" }
+        return out
+    }
+
     /**
      * يزيل المسارات المتداخلة ويُبقي الجذر الأعلى فقط.
      *

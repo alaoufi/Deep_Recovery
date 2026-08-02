@@ -27,10 +27,10 @@
     <string name="root_check">فحص صلاحيات Root</string>
 
     <!-- عمق الفحص -->
-    <string name="depth_quick">فحص سريع</string>
-    <string name="depth_quick_desc">تحليل Media Store وسلة المهملات والمجلدات المعروفة.</string>
+    <string name="depth_quick">المحذوف فقط</string>
+    <string name="depth_quick_desc">يفحص أماكن بقايا المحذوف فقط: سلة المهملات، LOST.DIR، ذاكرة المصغّرات، ومجلدات الوسائط. سريع — دقائق معدودة.</string>
     <string name="depth_deep">فحص عميق</string>
-    <string name="depth_deep_desc">File Carving بالاعتماد على توقيع الملف وليس اسمه.</string>
+    <string name="depth_deep_desc">يمرّ على التخزين كاملاً مع File Carving بالاعتماد على التوقيع لا الاسم. أبطأ بكثير — قد يستغرق عشرات الدقائق.</string>
     <string name="depth_full">فحص كامل</string>
     <string name="depth_full_desc">يشمل قراءة القطاعات الخام — يتطلب Root ويستغرق وقتاً أطول.</string>
 
@@ -71,6 +71,7 @@
     <string name="stage_preparing">تجهيز الفحص…</string>
     <string name="stage_mediastore">تحليل Media Store…</string>
     <string name="stage_folders">فحص المجلدات…</string>
+    <string name="stage_deleted_only">أماكن المحذوف</string>
     <string name="stage_carving">استخراج الملفات من البيانات الخام…</string>
     <string name="stage_raw_sectors">قراءة القطاعات الخام…</string>
 

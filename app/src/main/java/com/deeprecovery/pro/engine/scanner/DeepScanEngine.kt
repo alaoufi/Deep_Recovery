@@ -61,7 +61,9 @@ class DeepScanEngine(private val context: Context) {
         private const val TAG = "DeepScanEngine"
         /** لا نطبّق النحت على الملفات الصغيرة جداً. */
         private const val MIN_CARVE_TARGET = 1L * 1024 * 1024
-        private const val PROGRESS_INTERVAL_MS = 400L
+        private const val PROGRESS_INTERVAL_MS = 1500L
+        /** أقصى معدّل لتحديث الواجهة أثناء الفحص. */
+        private const val PUBLISH_INTERVAL_MS = 250L
         private const val MAX_CARVE_CANDIDATES = 400
 
         /** نتوقف عن الاستخراج قبل أن نخنق تخزين الجهاز. */
@@ -163,10 +165,8 @@ class DeepScanEngine(private val context: Context) {
 
     /** يحدّث الزمن المنقضي والمتبقي دون كتابة في قاعدة البيانات. */
     private fun tickElapsed() {
-        val current = _progress.value
-        if (current.status != ScanStatus.RUNNING) return
-        val elapsed = System.currentTimeMillis() - startTime
-        _progress.value = current.copy(elapsedMs = elapsed, etaMs = estimateEta(current, elapsed))
+        if (_progress.value.status != ScanStatus.RUNNING) return
+        publish(force = true)
     }
 
     private fun estimateEta(progress: ScanProgress, elapsed: Long): Long {
@@ -271,16 +271,34 @@ class DeepScanEngine(private val context: Context) {
         val targets = StorageUtils.resolveTargets(context)
             .filter { it.available && it.location in request.locations }
 
-        dedupeRoots(targets)
-            .groupBy({ it.first }, { it.second })
-            .forEach { (target, dirs) ->
+        if (request.depth == ScanDepth.QUICK) {
+            // الفحص السريع لا يمرّ على التخزين كاملاً: يقتصر على الأماكن
+            // التي قد تحتوي بقايا محذوفة فعلاً
+            val volumes = buildList {
+                add(StorageUtils.internalRoot())
+                StorageUtils.sdCardRoot(context)?.let { add(it) }
+            }
+            val hotspots = StorageUtils.recoveryHotspots(volumes)
+            if (hotspots.isNotEmpty()) {
                 sources += ScanSource.Directory(
-                    key = "dir:${target.location.key}",
-                    label = target.label,
-                    dirs = dirs,
-                    location = target.location
+                    key = "dir:hotspots",
+                    label = context.getString(R.string.stage_deleted_only),
+                    dirs = hotspots,
+                    location = ScanLocation.INTERNAL_STORAGE
                 )
             }
+        } else {
+            dedupeRoots(targets)
+                .groupBy({ it.first }, { it.second })
+                .forEach { (target, dirs) ->
+                    sources += ScanSource.Directory(
+                        key = "dir:${target.location.key}",
+                        label = target.label,
+                        dirs = dirs,
+                        location = target.location
+                    )
+                }
+        }
 
         if (request.mode == ScanMode.ROOT && ScanLocation.RAW_BLOCK in request.locations) {
             if (RootManager.isRootAvailable()) {
@@ -341,7 +359,7 @@ class DeepScanEngine(private val context: Context) {
                 includeVideos = request.includeVideos,
                 onProgressFile = { file ->
                     checkPause()
-                    if (request.depth != ScanDepth.QUICK && file.length() >= MIN_CARVE_TARGET) {
+                    if (file.length() >= MIN_CARVE_TARGET) {
                         carveCandidates += file
                     }
                     bumpProcessed(file.length())
@@ -356,8 +374,9 @@ class DeepScanEngine(private val context: Context) {
             )
         }.onFailure { if (it is CancellationException) throw it }
 
-        // الفحص العميق: نحت داخل الملفات الكبيرة (قد تحوي بقايا ملفات سابقة)
-        if (request.depth != ScanDepth.QUICK) {
+        // النحت يعمل في كل الأعماق: ذاكرة المصغّرات وسلال المهملات هي
+        // أعلى مصادر الاستعادة بلا Root، وعددها صغير فلا يبطئ الفحص
+        if (carveCandidates.isNotEmpty()) {
             emitStage(R.string.stage_carving, source.label)
             val carver = buildCarver(request)
             for (file in prioritizeCarveCandidates(carveCandidates)) {
@@ -559,44 +578,74 @@ class DeepScanEngine(private val context: Context) {
 
     // ------------------------------------------------------------ التقدّم
 
+    // ------------------------------------------------------------ التقدّم
+    //
+    // العدّادات تُحفظ في حقول عادية ويُنشر التقدّم على فترات.
+    // دفع كائن تقدّم جديد لكل ملف يعني عشرات الآلاف من إعادة الرسم على
+    // الخيط الرئيسي في فحص كبير — وهو بحد ذاته سبب رئيسي للبطء.
+
+    private var scannedCount = 0
+    private var foundCount = 0
+    private var imagesCount = 0
+    private var videosCount = 0
+    private var duplicatesCount = 0
+    private var processedBytes = 0L
+    private var currentPath = ""
+    private var stageRes = 0
+    private var lastPublish = 0L
+
     private fun countFound(mediaType: MediaType, duplicate: Boolean, folder: String) {
         seenFolders += folder
-        val current = _progress.value
-        _progress.value = current.copy(
-            filesFound = current.filesFound + 1,
-            imagesFound = current.imagesFound + if (mediaType == MediaType.IMAGE) 1 else 0,
-            videosFound = current.videosFound + if (mediaType == MediaType.VIDEO) 1 else 0,
-            duplicatesFound = current.duplicatesFound + if (duplicate) 1 else 0,
-            foldersFound = seenFolders.size
-        )
+        foundCount++
+        if (mediaType == MediaType.IMAGE) imagesCount++
+        if (mediaType == MediaType.VIDEO) videosCount++
+        if (duplicate) duplicatesCount++
+        publish()
     }
 
     /**
      * يسجّل ملفاً تمت معالجته.
      *
-     * هذا هو مؤشر الحياة الحقيقي للفحص: حجم التخزين الذي سنمرّ عليه غير
-     * معروف مسبقاً، فعرض نسبة مئوية عليه تخمين. عدّاد الملفات المفحوصة
-     * والمسار الحالي يخبران المستخدم بما يجري فعلاً.
+     * عدّاد الملفات المفحوصة والمسار الحالي هما مؤشر الحياة الحقيقي:
+     * حجم ما سنمرّ عليه غير معروف مسبقاً فأي نسبة مئوية تخمين.
      */
     private fun countScanned(file: File) {
-        val current = _progress.value
-        val parent = file.parent
-        _progress.value = current.copy(
-            filesScanned = current.filesScanned + 1,
-            currentSource = parent ?: current.currentSource
-        )
+        scannedCount++
+        file.parent?.let { currentPath = it }
+        publish()
     }
 
     private fun bumpProcessed(bytes: Long) {
-        val current = _progress.value
-        _progress.value = current.copy(processedBytes = current.processedBytes + bytes)
+        processedBytes += bytes
     }
 
-    private suspend fun emitStage(stageRes: Int, sourceName: String) {
-        _progress.value = _progress.value.copy(
-            stageLabelRes = stageRes,
-            currentSource = sourceName
+    /** ينشر لقطة التقدّم بحد أقصى [PUBLISH_INTERVAL_MS] مرة واحدة. */
+    private fun publish(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastPublish < PUBLISH_INTERVAL_MS) return
+        lastPublish = now
+
+        val current = _progress.value
+        val elapsed = now - startTime
+        val snapshot = current.copy(
+            filesScanned = scannedCount,
+            filesFound = foundCount,
+            imagesFound = imagesCount,
+            videosFound = videosCount,
+            duplicatesFound = duplicatesCount,
+            foldersFound = seenFolders.size,
+            processedBytes = processedBytes,
+            currentSource = currentPath,
+            stageLabelRes = if (stageRes != 0) stageRes else current.stageLabelRes,
+            elapsedMs = elapsed
         )
+        _progress.value = snapshot.copy(etaMs = estimateEta(snapshot, elapsed))
+    }
+
+    private suspend fun emitStage(stage: Int, sourceName: String) {
+        stageRes = stage
+        if (sourceName.isNotEmpty()) currentPath = sourceName
+        publish(force = true)
         emitProgress()
     }
 
@@ -604,14 +653,9 @@ class DeepScanEngine(private val context: Context) {
         val now = System.currentTimeMillis()
         if (now - lastProgressEmit < PROGRESS_INTERVAL_MS) return
         lastProgressEmit = now
+        publish(force = true)
 
         val current = _progress.value
-        val elapsed = now - startTime
-        _progress.value = current.copy(
-            elapsedMs = elapsed,
-            etaMs = estimateEta(current, elapsed)
-        )
-
         sessionDao.updateProgress(
             id = current.sessionId,
             processed = current.processedBytes,
