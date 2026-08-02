@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/mainFragment">
+
+    <fragment
+        android:id="@+id/mainFragment"
+        android:name="com.deeprecovery.pro.ui.main.MainFragment"
+        android:label="@string/main_title"
+        tools:layout="@layout/fragment_main"
+        xmlns:tools="http://schemas.android.com/tools">
+
+        <action
+            android:id="@+id/action_main_to_scan"
+            app:destination="@id/scanFragment" />
+
+        <action
+            android:id="@+id/action_main_to_results"
+            app:destination="@id/resultsFragment" />
+
+        <action
+            android:id="@+id/action_main_to_sessions"
+            app:destination="@id/sessionsFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/scanFragment"
+        android:name="com.deeprecovery.pro.ui.scan.ScanFragment"
+        android:label="@string/scan_title">
+
+        <argument
+            android:name="resumeSessionId"
+            android:defaultValue="-1L"
+            app:argType="long" />
+
+        <action
+            android:id="@+id/action_scan_to_results"
+            app:destination="@id/resultsFragment"
+            app:popUpTo="@id/mainFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/resultsFragment"
+        android:name="com.deeprecovery.pro.ui.results.ResultsFragment"
+        android:label="@string/results_title">
+
+        <argument
+            android:name="sessionId"
+            app:argType="long" />
+
+        <action
+            android:id="@+id/action_results_to_preview"
+            app:destination="@id/previewFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/previewFragment"
+        android:name="com.deeprecovery.pro.ui.preview.PreviewFragment"
+        android:label="@string/preview_title">
+
+        <argument
+            android:name="fileId"
+            app:argType="long" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/sessionsFragment"
+        android:name="com.deeprecovery.pro.ui.main.SessionsFragment"
+        android:label="@string/sessions_title">
+
+        <action
+            android:id="@+id/action_sessions_to_results"
+            app:destination="@id/resultsFragment" />
+
+    </fragment>
+
+</navigation>

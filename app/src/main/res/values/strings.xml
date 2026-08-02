@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Deep Recovery Pro</string>
+    <string name="app_subtitle">استعادة عميقة للصور والفيديوهات المحذوفة</string>
+
+    <!-- الشاشة الرئيسية -->
+    <string name="main_title">الفحص العميق</string>
+    <string name="start_deep_scan">بدء الفحص العميق</string>
+    <string name="resume_scan">استئناف الفحص السابق</string>
+    <string name="open_last_results">فتح آخر نتائج</string>
+    <string name="section_scan_mode">وضع الفحص</string>
+    <string name="section_scan_type">نوع الفحص</string>
+    <string name="section_media_type">نوع الملفات</string>
+    <string name="section_locations">مكان الفحص</string>
+    <string name="media_images">الصور</string>
+    <string name="media_videos">الفيديوهات</string>
+    <string name="free_space">المساحة المتاحة للعمل: %1$s</string>
+
+    <!-- الأوضاع -->
+    <string name="mode_normal">الوضع العادي</string>
+    <string name="mode_normal_desc">بدون Root — استعادة الملفات المتاحة، تحليل Media Store، والبحث في المساحات المسموح بها.</string>
+    <string name="mode_root">الوضع المتقدم (Root)</string>
+    <string name="mode_root_desc">وصول Raw Block Device وقراءة ‎/dev/block وفحص القطاعات مباشرة — فحص عميق حقيقي.</string>
+    <string name="root_available">تم اكتشاف صلاحيات Root على الجهاز</string>
+    <string name="root_unavailable">لا توجد صلاحيات Root — الوضع المتقدم غير متاح</string>
+    <string name="root_check">فحص صلاحيات Root</string>
+
+    <!-- عمق الفحص -->
+    <string name="depth_quick">فحص سريع</string>
+    <string name="depth_quick_desc">تحليل Media Store وسلة المهملات والمجلدات المعروفة.</string>
+    <string name="depth_deep">فحص عميق</string>
+    <string name="depth_deep_desc">File Carving بالاعتماد على توقيع الملف وليس اسمه.</string>
+    <string name="depth_full">فحص كامل</string>
+    <string name="depth_full_desc">يشمل قراءة القطاعات الخام — يتطلب Root ويستغرق وقتاً أطول.</string>
+
+    <!-- أماكن الفحص -->
+    <string name="loc_internal">الذاكرة الداخلية</string>
+    <string name="loc_sdcard">بطاقة SD الخارجية</string>
+    <string name="loc_dcim">DCIM</string>
+    <string name="loc_camera">Camera</string>
+    <string name="loc_whatsapp">WhatsApp Media</string>
+    <string name="loc_telegram">Telegram Media</string>
+    <string name="loc_downloads">Downloads</string>
+    <string name="loc_raw_block">القطاعات الخام ‎/dev/block</string>
+    <string name="loc_unavailable">غير متاح على هذا الجهاز</string>
+
+    <!-- شاشة الفحص -->
+    <string name="scan_title">جارٍ الفحص</string>
+    <string name="scan_percent">%1$d%%</string>
+    <string name="scan_files_found">الملفات المكتشفة</string>
+    <string name="scan_images_found">صور</string>
+    <string name="scan_videos_found">فيديو</string>
+    <string name="scan_folders_found">مجلدات</string>
+    <string name="scan_remaining">الوقت المتبقي</string>
+    <string name="scan_elapsed">الوقت المنقضي</string>
+    <string name="scan_current_source">المصدر الحالي</string>
+    <string name="scan_pause">إيقاف مؤقت</string>
+    <string name="scan_resume">استئناف</string>
+    <string name="scan_stop">إيقاف الفحص</string>
+    <string name="scan_view_results">عرض النتائج</string>
+    <string name="scan_paused_hint">الفحص متوقف مؤقتاً — سيُستأنف من نفس النقطة.</string>
+    <string name="scan_completed">اكتمل الفحص</string>
+    <string name="scan_cancelled">تم إيقاف الفحص</string>
+    <string name="scan_failed">تعذّر إكمال الفحص</string>
+
+    <string name="stage_preparing">تجهيز الفحص…</string>
+    <string name="stage_mediastore">تحليل Media Store…</string>
+    <string name="stage_folders">فحص المجلدات…</string>
+    <string name="stage_carving">استخراج الملفات من البيانات الخام…</string>
+    <string name="stage_raw_sectors">قراءة القطاعات الخام…</string>
+
+    <!-- النتائج -->
+    <string name="results_title">النتائج</string>
+    <string name="results_empty">لم يتم العثور على ملفات قابلة للاستعادة</string>
+    <string name="results_empty_hint">جرّب الفحص الكامل، أو فعّل الوضع المتقدم إذا كان الجهاز يدعم Root.</string>
+    <string name="results_search_hint">بحث في النتائج…</string>
+    <string name="results_view_files">ملفات</string>
+    <string name="results_view_folders">مجلدات</string>
+    <string name="filter_all">الكل</string>
+    <string name="filter_images">صور</string>
+    <string name="filter_videos">فيديو</string>
+    <string name="filter_excellent">ممتازة فقط</string>
+    <string name="filter_hide_duplicates">إخفاء المكرر</string>
+    <string name="select_all">تحديد الكل</string>
+    <string name="clear_selection">إلغاء التحديد</string>
+    <string name="selected_count">تم تحديد %1$d ملف</string>
+    <string name="duplicate_badge">مكرر</string>
+    <string name="truncated_badge">مقطوع</string>
+
+    <!-- المجلدات -->
+    <string name="folder_files_count">%1$d ملف</string>
+    <string name="folder_breakdown">%1$d صورة • %2$d فيديو</string>
+    <string name="folder_recover_all">استعادة المجلد كاملاً</string>
+    <string name="folder_open">فتح المجلد</string>
+    <string name="folder_all">كل المجلدات</string>
+    <string name="folder_selected">المجلد محدد بالكامل</string>
+    <string name="preserve_structure">الحفاظ على شجرة المجلدات الأصلية</string>
+    <string name="preserve_structure_desc">تُعاد المجلدات كاملة بما فيها، وتُنشأ نفس المسارات داخل وجهة الحفظ.</string>
+
+    <!-- جودة الاستعادة -->
+    <string name="quality_excellent">Excellent Recovery</string>
+    <string name="quality_excellent_desc">بنية الملف كاملة وتم فك ترميزه بنجاح.</string>
+    <string name="quality_good">Good Recovery</string>
+    <string name="quality_good_desc">الملف يُفتح لكن قد ينقصه جزء من البيانات.</string>
+    <string name="quality_poor">Poor Recovery</string>
+    <string name="quality_poor_desc">بقايا ملف — احتمال التلف مرتفع.</string>
+    <string name="quality_label">حالة الاستعادة</string>
+    <string name="confidence_label">نسبة نجاح الاستعادة: %1$d%%</string>
+
+    <!-- المعاينة -->
+    <string name="preview_title">معاينة</string>
+    <string name="preview_play">تشغيل</string>
+    <string name="preview_pause">إيقاف</string>
+    <string name="preview_info">تفاصيل الملف</string>
+    <string name="preview_recover_this">استعادة هذا الملف</string>
+    <string name="info_size">الحجم</string>
+    <string name="info_type">النوع</string>
+    <string name="info_dimensions">الأبعاد</string>
+    <string name="info_duration">المدة</string>
+    <string name="info_folder">المجلد الأصلي</string>
+    <string name="info_source">المصدر</string>
+    <string name="info_offset">الإزاحة داخل المصدر</string>
+    <string name="info_discovered">وقت الاكتشاف</string>
+    <string name="info_signature">التوقيع المطابق</string>
+
+    <!-- الاستعادة -->
+    <string name="recovery_title">الاستعادة</string>
+    <string name="recovery_choose_destination">اختيار مكان الحفظ</string>
+    <string name="recovery_destination_default">مجلد DeepRecoveryPro الافتراضي</string>
+    <string name="recovery_destination_current">وجهة الحفظ: %1$s</string>
+    <string name="recovery_start">بدء الاستعادة</string>
+    <string name="recovery_running">جارٍ الاستعادة %1$d من %2$d</string>
+    <string name="recovery_current_folder">المجلد: %1$s</string>
+    <string name="recovery_skip_duplicates">تخطي الملفات المكررة</string>
+    <string name="recovery_nothing_selected">لم يتم تحديد أي ملف</string>
+
+    <!-- تقرير الاستعادة -->
+    <string name="report_title">تقرير الاستعادة</string>
+    <string name="report_success_rate">نسبة النجاح</string>
+    <string name="report_succeeded">تمت استعادتها</string>
+    <string name="report_failed">فشلت</string>
+    <string name="report_skipped">مكررة تم تخطيها</string>
+    <string name="report_folders">مجلدات أُعيد إنشاؤها</string>
+    <string name="report_bytes">الحجم المستعاد</string>
+    <string name="report_destination">مكان الحفظ</string>
+    <string name="report_done">تم</string>
+
+    <!-- الخصوصية والتنويه -->
+    <string name="privacy_title">الخصوصية</string>
+    <string name="privacy_body">• يعمل التطبيق Offline بالكامل.\n• لا يتم رفع أي ملف.\n• لا توجد خوادم خارجية.\n• لا يتم تسجيل أي بيانات.\n• جميع عمليات الفحص تتم داخل الجهاز.</string>
+
+    <string name="disclaimer_title">مهم قبل البدء</string>
+    <string name="disclaimer_body">الاستعادة العميقة الحقيقية تعتمد على:\n\n• نوع الجهاز.\n• إصدار Android.\n• هل تم الكتابة فوق البيانات أم لا.\n• وجود Root من عدمه.\n\nعلى أجهزة أندرويد الحديثة يكون التخزين مشفّراً وتُنفَّذ عملية TRIM بعد الحذف، لذلك قد تُمحى البيانات فعلياً ولا يمكن استرجاعها. أوقف استخدام الجهاز وتصويره فور ملاحظة الحذف لتقليل احتمال الكتابة فوق البيانات.</string>
+    <string name="disclaimer_understood">فهمت، متابعة</string>
+    <string name="disclaimer_show">عرض التنويه</string>
+
+    <!-- الصلاحيات -->
+    <string name="perm_title">الصلاحيات المطلوبة</string>
+    <string name="perm_media_body">يحتاج التطبيق إلى إذن قراءة الصور والفيديوهات لفحص التخزين.</string>
+    <string name="perm_all_files_body">للفحص العميق لكل المجلدات، امنح صلاحية الوصول لكل الملفات من إعدادات النظام.</string>
+    <string name="perm_grant">منح الإذن</string>
+    <string name="perm_open_settings">فتح الإعدادات</string>
+    <string name="perm_denied">تم رفض الإذن — سيقتصر الفحص على المساحات المسموح بها.</string>
+    <string name="perm_notifications_body">إذن الإشعارات يسمح بعرض تقدّم الفحص أثناء عمله في الخلفية.</string>
+
+    <!-- الأخطاء -->
+    <string name="error_no_media_type">اختر الصور أو الفيديوهات على الأقل</string>
+    <string name="error_no_location">اختر مكان فحص واحداً على الأقل</string>
+    <string name="error_root_required">هذا الخيار يتطلب صلاحيات Root</string>
+    <string name="error_no_space">المساحة المتاحة غير كافية لاستخراج الملفات</string>
+
+    <!-- الإشعارات -->
+    <string name="channel_scan">تقدّم الفحص</string>
+    <string name="channel_scan_desc">إشعار يعرض حالة الفحص العميق أثناء عمله.</string>
+    <string name="channel_recovery">تقدّم الاستعادة</string>
+    <string name="channel_recovery_desc">إشعار يعرض حالة استعادة الملفات.</string>
+    <string name="notif_scan_title">الفحص العميق جارٍ</string>
+    <string name="notif_scan_text">%1$d%% — %2$d ملف مكتشف</string>
+    <string name="notif_recovery_title">جارٍ استعادة الملفات</string>
+    <string name="notif_recovery_text">%1$d من %2$d</string>
+
+    <!-- عام -->
+    <string name="size_zero">0 بايت</string>
+    <string name="eta_calculating">جارٍ الحساب…</string>
+    <string name="eta_seconds">%1$d ثانية</string>
+    <string name="eta_minutes">%1$d دقيقة</string>
+    <string name="eta_hours">%1$d س %2$d د</string>
+    <string name="action_back">رجوع</string>
+    <string name="action_cancel">إلغاء</string>
+    <string name="action_delete">حذف</string>
+    <string name="action_settings">الإعدادات</string>
+    <string name="menu_privacy">الخصوصية</string>
+    <string name="menu_disclaimer">تنويه مهم</string>
+    <string name="menu_sessions">الفحوصات المحفوظة</string>
+    <string name="sessions_title">الفحوصات المحفوظة</string>
+    <string name="session_summary">%1$d ملف • %2$s</string>
+    <string name="session_delete_confirm">حذف نتائج هذا الفحص؟</string>
+
+    <string-array name="size_units">
+        <item>بايت</item>
+        <item>ك.ب</item>
+        <item>م.ب</item>
+        <item>غ.ب</item>
+        <item>ت.ب</item>
+    </string-array>
+
+</resources>

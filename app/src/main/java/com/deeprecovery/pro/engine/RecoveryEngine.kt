@@ -1,0 +1,316 @@
+package com.deeprecovery.pro.engine
+
+import android.content.Context
+import android.net.Uri
+import android.util.Log
+import androidx.documentfile.provider.DocumentFile
+import com.deeprecovery.pro.data.db.AppDatabase
+import com.deeprecovery.pro.data.db.RecoveredFileEntity
+import com.deeprecovery.pro.data.db.RecoveryReportEntity
+import kotlinx.coroutines.ensureActive
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import kotlin.coroutines.coroutineContext
+
+/** تقرير نتيجة عملية الاستعادة. */
+data class RecoveryReport(
+    val requested: Int,
+    val succeeded: Int,
+    val failed: Int,
+    val skippedDuplicates: Int,
+    val foldersCreated: Int,
+    val bytesWritten: Long,
+    val destination: String,
+    val failures: List<String>
+) {
+    val successRate: Int
+        get() = if (requested == 0) 0 else (succeeded * 100 / requested)
+}
+
+/** تقدّم الاستعادة أثناء التنفيذ. */
+data class RecoveryProgress(
+    val current: Int,
+    val total: Int,
+    val currentName: String,
+    val currentFolder: String,
+    val bytesWritten: Long
+)
+
+/**
+ * محرك الاستعادة.
+ *
+ * يكتب الملفات إلى الوجهة التي اختارها المستخدم — إما مجلد عبر
+ * **Storage Access Framework** أو مجلد عام مباشر.
+ *
+ * الأهم: **يُرجع المجلدات كاملة بما فيها**. عند استعادة مجلد يُعاد بناء
+ * نفس شجرة المجلدات الأصلية في الوجهة (`DCIM/Camera`, `WhatsApp/Media/...`)
+ * وتوضع الملفات داخلها بدل تفريغ كل شيء في مجلد واحد.
+ */
+class RecoveryEngine(private val context: Context) {
+
+    companion object {
+        private const val TAG = "RecoveryEngine"
+        private const val BUFFER = 256 * 1024
+        const val ROOT_FOLDER_NAME = "DeepRecoveryPro"
+    }
+
+    private val db = AppDatabase.get(context)
+    private val fileDao = db.recoveredFileDao()
+    private val reportDao = db.recoveryReportDao()
+
+    /**
+     * يستعيد **مجلداً كاملاً بما فيه** — بما في ذلك المجلدات الفرعية.
+     *
+     * @param folderPath مسار المجلد كما هو مخزّن في النتائج.
+     */
+    suspend fun recoverFolder(
+        sessionId: Long,
+        folderPath: String,
+        destination: Uri?,
+        preserveStructure: Boolean,
+        skipDuplicates: Boolean,
+        onProgress: suspend (RecoveryProgress) -> Unit = {}
+    ): RecoveryReport {
+        val files = fileDao.getFolderTreeContents(sessionId, folderPath)
+        return recover(sessionId, files, destination, preserveStructure, skipDuplicates, onProgress)
+    }
+
+    /** يستعيد مجموعة ملفات محددة بالمعرّفات. */
+    suspend fun recoverFiles(
+        sessionId: Long,
+        fileIds: List<Long>,
+        destination: Uri?,
+        preserveStructure: Boolean,
+        skipDuplicates: Boolean,
+        onProgress: suspend (RecoveryProgress) -> Unit = {}
+    ): RecoveryReport {
+        val files = fileDao.getByIds(fileIds)
+        return recover(sessionId, files, destination, preserveStructure, skipDuplicates, onProgress)
+    }
+
+    private suspend fun recover(
+        sessionId: Long,
+        files: List<RecoveredFileEntity>,
+        destination: Uri?,
+        preserveStructure: Boolean,
+        skipDuplicates: Boolean,
+        onProgress: suspend (RecoveryProgress) -> Unit
+    ): RecoveryReport {
+        val startedAt = System.currentTimeMillis()
+        val writer = createWriter(destination)
+        val failures = mutableListOf<String>()
+        var succeeded = 0
+        var skipped = 0
+        var bytes = 0L
+        val usedNames = mutableSetOf<String>()
+
+        files.forEachIndexed { index, entity ->
+            coroutineContext.ensureActive()
+
+            if (skipDuplicates && entity.isDuplicate) {
+                skipped++
+                return@forEachIndexed
+            }
+
+            val relativeFolder = if (preserveStructure) entity.folderPath else ""
+            onProgress(
+                RecoveryProgress(
+                    current = index + 1,
+                    total = files.size,
+                    currentName = entity.displayName,
+                    currentFolder = relativeFolder,
+                    bytesWritten = bytes
+                )
+            )
+
+            val source = entity.stagedPath?.let(::File)
+            if (source == null || !source.exists()) {
+                failures += "${entity.displayName}: المصدر غير متاح"
+                return@forEachIndexed
+            }
+
+            val name = uniqueName(entity, usedNames, relativeFolder)
+            val result = runCatching { writer.write(relativeFolder, name, source) }
+            result.onSuccess { written ->
+                succeeded++
+                bytes += written.bytes
+                fileDao.markRecovered(entity.id, written.uri, System.currentTimeMillis())
+            }.onFailure { error ->
+                Log.w(TAG, "فشل استعادة ${entity.displayName}", error)
+                failures += "${entity.displayName}: ${error.message ?: "خطأ غير معروف"}"
+            }
+        }
+
+        val report = RecoveryReport(
+            requested = files.size,
+            succeeded = succeeded,
+            failed = files.size - succeeded - skipped,
+            skippedDuplicates = skipped,
+            foldersCreated = writer.foldersCreated,
+            bytesWritten = bytes,
+            destination = writer.destinationLabel,
+            failures = failures
+        )
+
+        reportDao.insert(
+            RecoveryReportEntity(
+                sessionId = sessionId,
+                startedAt = startedAt,
+                finishedAt = System.currentTimeMillis(),
+                destination = report.destination,
+                requestedCount = report.requested,
+                succeededCount = report.succeeded,
+                failedCount = report.failed,
+                skippedDuplicates = report.skippedDuplicates,
+                foldersCreated = report.foldersCreated,
+                bytesWritten = report.bytesWritten
+            )
+        )
+        return report
+    }
+
+    /** يضمن عدم تعارض الأسماء داخل نفس المجلد الوجهة. */
+    private fun uniqueName(
+        entity: RecoveredFileEntity,
+        used: MutableSet<String>,
+        folder: String
+    ): String {
+        val base = entity.displayName.substringBeforeLast('.', entity.displayName)
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .ifEmpty { "recovered_${entity.id}" }
+        val ext = entity.extension.ifEmpty { "bin" }
+        var candidate = "$base.$ext"
+        var counter = 1
+        while (!used.add("$folder/$candidate")) {
+            candidate = "${base}_$counter.$ext"
+            counter++
+        }
+        return candidate
+    }
+
+    // ------------------------------------------------------------ الكتابة
+
+    private data class WriteResult(val uri: String, val bytes: Long)
+
+    private interface DestinationWriter {
+        val destinationLabel: String
+        val foldersCreated: Int
+        fun write(relativeFolder: String, name: String, source: File): WriteResult
+    }
+
+    private fun createWriter(destination: Uri?): DestinationWriter =
+        if (destination != null) {
+            SafWriter(context, destination)
+        } else {
+            DirectWriter(File(android.os.Environment.getExternalStorageDirectory(), ROOT_FOLDER_NAME))
+        }
+
+    /**
+     * كتابة عبر Storage Access Framework مع إنشاء شجرة المجلدات.
+     * يخزّن المجلدات المُنشأة لتفادي إعادة البحث عنها لكل ملف.
+     */
+    private class SafWriter(
+        private val context: Context,
+        treeUri: Uri
+    ) : DestinationWriter {
+
+        private val root = DocumentFile.fromTreeUri(context, treeUri)
+            ?: error("وجهة الحفظ غير صالحة")
+
+        private val cache = mutableMapOf<String, DocumentFile>()
+        private var created = 0
+
+        override val destinationLabel: String = root.name ?: treeUri.toString()
+        override val foldersCreated: Int get() = created
+
+        override fun write(relativeFolder: String, name: String, source: File): WriteResult {
+            val dir = resolveFolder(relativeFolder)
+            val existing = dir.findFile(name)
+            existing?.delete()
+            val target = dir.createFile("application/octet-stream", name)
+                ?: error("تعذّر إنشاء الملف في الوجهة")
+
+            var written = 0L
+            context.contentResolver.openOutputStream(target.uri)?.use { out ->
+                FileInputStream(source).use { input ->
+                    val buffer = ByteArray(BUFFER)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        out.write(buffer, 0, read)
+                        written += read
+                    }
+                    out.flush()
+                }
+            } ?: error("تعذّر فتح مجرى الكتابة")
+
+            return WriteResult(target.uri.toString(), written)
+        }
+
+        /** ينشئ شجرة المجلدات جزءاً جزءاً — هذا ما يُرجع المجلد كاملاً كما كان. */
+        private fun resolveFolder(relativeFolder: String): DocumentFile {
+            if (relativeFolder.isBlank()) return root
+            cache[relativeFolder]?.let { return it }
+
+            var current = root
+            val segments = relativeFolder.split('/')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && it != "." && it != ".." }
+
+            val accumulated = StringBuilder()
+            for (segment in segments) {
+                if (accumulated.isNotEmpty()) accumulated.append('/')
+                accumulated.append(segment)
+                val key = accumulated.toString()
+                val cached = cache[key]
+                if (cached != null) {
+                    current = cached
+                    continue
+                }
+                val safeName = segment.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                val existing = current.findFile(safeName)?.takeIf { it.isDirectory }
+                current = existing ?: (current.createDirectory(safeName)
+                    ?.also { created++ }
+                    ?: error("تعذّر إنشاء المجلد $safeName"))
+                cache[key] = current
+            }
+            return current
+        }
+    }
+
+    /** كتابة مباشرة إلى مجلد على التخزين (يتطلب صلاحية وصول كامل). */
+    private class DirectWriter(private val root: File) : DestinationWriter {
+
+        private var created = 0
+
+        override val destinationLabel: String = root.absolutePath
+        override val foldersCreated: Int get() = created
+
+        override fun write(relativeFolder: String, name: String, source: File): WriteResult {
+            val dir = if (relativeFolder.isBlank()) root else File(root, sanitize(relativeFolder))
+            if (!dir.exists()) {
+                if (dir.mkdirs()) created++ else error("تعذّر إنشاء المجلد ${dir.absolutePath}")
+            }
+            val target = File(dir, name)
+            var written = 0L
+            FileInputStream(source).use { input ->
+                FileOutputStream(target).use { out ->
+                    val buffer = ByteArray(BUFFER)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        out.write(buffer, 0, read)
+                        written += read
+                    }
+                    out.flush()
+                }
+            }
+            return WriteResult(Uri.fromFile(target).toString(), written)
+        }
+
+        private fun sanitize(path: String): String = path.split('/')
+            .filter { it.isNotBlank() && it != "." && it != ".." }
+            .joinToString("/") { it.replace(Regex("[\\\\:*?\"<>|]"), "_") }
+    }
+}

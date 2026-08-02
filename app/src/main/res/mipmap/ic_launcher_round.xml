@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- أيقونة احتياطية لإصدارات أندرويد الأقدم من 26 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_background" />
+    <item android:drawable="@drawable/ic_launcher_foreground"
+        android:top="14dp" android:bottom="14dp"
+        android:start="14dp" android:end="14dp" />
+</layer-list>

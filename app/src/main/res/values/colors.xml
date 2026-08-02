@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="md_primary">#2E6BE6</color>
+    <color name="md_on_primary">#FFFFFF</color>
+    <color name="md_primary_container">#DCE4FF</color>
+    <color name="md_on_primary_container">#001945</color>
+
+    <color name="md_secondary">#00696E</color>
+    <color name="md_on_secondary">#FFFFFF</color>
+    <color name="md_secondary_container">#9CF1F6</color>
+    <color name="md_on_secondary_container">#002021</color>
+
+    <color name="md_tertiary">#7B4EAF</color>
+    <color name="md_on_tertiary">#FFFFFF</color>
+
+    <color name="md_error">#BA1A1A</color>
+    <color name="md_on_error">#FFFFFF</color>
+
+    <color name="md_background">#FDFBFF</color>
+    <color name="md_on_background">#1B1B1F</color>
+    <color name="md_surface">#FDFBFF</color>
+    <color name="md_on_surface">#1B1B1F</color>
+    <color name="md_surface_variant">#E1E2EC</color>
+    <color name="md_on_surface_variant">#44464F</color>
+    <color name="md_outline">#757780</color>
+
+    <!-- الوضع الليلي -->
+    <color name="md_primary_dark">#B4C5FF</color>
+    <color name="md_on_primary_dark">#002C71</color>
+    <color name="md_primary_container_dark">#00429F</color>
+    <color name="md_on_primary_container_dark">#DCE4FF</color>
+    <color name="md_background_dark">#1B1B1F</color>
+    <color name="md_on_background_dark">#E4E1E6</color>
+    <color name="md_surface_dark">#1B1B1F</color>
+    <color name="md_on_surface_dark">#E4E1E6</color>
+    <color name="md_surface_variant_dark">#44464F</color>
+    <color name="md_on_surface_variant_dark">#C5C6D0</color>
+
+    <!-- ألوان جودة الاستعادة -->
+    <color name="quality_excellent">#1B873F</color>
+    <color name="quality_good">#B8860B</color>
+    <color name="quality_poor">#C4362F</color>
+
+    <color name="scrim">#99000000</color>
+
+</resources>
