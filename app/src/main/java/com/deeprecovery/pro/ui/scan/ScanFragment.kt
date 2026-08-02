@@ -96,7 +96,7 @@ class ScanFragment : Fragment() {
             includeImages = prefs.includeImages,
             includeVideos = prefs.includeVideos,
             customFolders = prefs.customFolders,
-            ignoreScreenshots = prefs.ignoreScreenshots
+            excludedDirNames = prefs.excludedDirNames()
         )
     }
 

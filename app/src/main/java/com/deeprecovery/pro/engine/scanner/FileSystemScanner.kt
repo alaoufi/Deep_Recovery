@@ -67,7 +67,12 @@ class FileSystemScanner {
     ) {
         val stack = ArrayDeque<Pair<File, Int>>()
         val visited = mutableSetOf<String>()
-        roots.forEach { if (it.isDirectory) stack.addLast(it to 0) }
+        // الاستثناء يشمل الجذور نفسها: مجلد مستبعَد قد يكون جذر فحص
+        roots.forEach {
+            if (it.isDirectory && it.name.lowercase() !in excludedDirNames) {
+                stack.addLast(it to 0)
+            }
+        }
 
         while (stack.isNotEmpty()) {
             coroutineContext.ensureActive()

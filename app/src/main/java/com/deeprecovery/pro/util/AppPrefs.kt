@@ -24,11 +24,16 @@ class AppPrefs(context: Context) {
      */
     private fun migrate() {
         val version = prefs.getInt(KEY_PREFS_VERSION, 1)
-        if (version < CURRENT_PREFS_VERSION) {
-            prefs.edit {
-                putString(KEY_DEPTH, ScanDepth.QUICK.name)
-                putInt(KEY_PREFS_VERSION, CURRENT_PREFS_VERSION)
+        if (version >= CURRENT_PREFS_VERSION) return
+
+        prefs.edit {
+            if (version < 2) putString(KEY_DEPTH, ScanDepth.QUICK.name)
+            if (version < 3) {
+                // المجلد الخاص أُضيف لاحقاً؛ نضمّه لمن لديه اختيار محفوظ
+                val saved = prefs.getStringSet(KEY_LOCATIONS, null)
+                if (saved != null) putStringSet(KEY_LOCATIONS, saved + "private")
             }
+            putInt(KEY_PREFS_VERSION, CURRENT_PREFS_VERSION)
         }
     }
 
@@ -76,6 +81,21 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_IGNORE_SCREENSHOTS, true)
         set(value) = prefs.edit { putBoolean(KEY_IGNORE_SCREENSHOTS, value) }
 
+    var ignoreWhatsAppImages: Boolean
+        get() = prefs.getBoolean(KEY_IGNORE_WA_IMAGES, false)
+        set(value) = prefs.edit { putBoolean(KEY_IGNORE_WA_IMAGES, value) }
+
+    var ignoreWhatsAppVideos: Boolean
+        get() = prefs.getBoolean(KEY_IGNORE_WA_VIDEOS, false)
+        set(value) = prefs.edit { putBoolean(KEY_IGNORE_WA_VIDEOS, value) }
+
+    /** أسماء المجلدات المستبعدة من المرور بحسب الخيارات المفعّلة. */
+    fun excludedDirNames(): Set<String> = buildSet {
+        if (ignoreScreenshots) addAll(StorageUtils.SCREENSHOT_DIR_NAMES)
+        if (ignoreWhatsAppImages) addAll(StorageUtils.WHATSAPP_IMAGE_DIR_NAMES)
+        if (ignoreWhatsAppVideos) addAll(StorageUtils.WHATSAPP_VIDEO_DIR_NAMES)
+    }
+
     /** وجهة الحفظ المختارة عبر Storage Access Framework. */
     var recoveryTreeUri: String?
         get() = prefs.getString(KEY_TREE_URI, null)
@@ -100,7 +120,7 @@ class AppPrefs(context: Context) {
 
     private companion object {
         const val KEY_PREFS_VERSION = "prefs_version"
-        const val CURRENT_PREFS_VERSION = 2
+        const val CURRENT_PREFS_VERSION = 3
 
         const val KEY_MODE = "scan_mode"
         const val KEY_DEPTH = "scan_depth"
@@ -109,12 +129,14 @@ class AppPrefs(context: Context) {
         const val KEY_LOCATIONS = "locations"
         const val KEY_CUSTOM_FOLDERS = "custom_folders"
         const val KEY_IGNORE_SCREENSHOTS = "ignore_screenshots"
+        const val KEY_IGNORE_WA_IMAGES = "ignore_wa_images"
+        const val KEY_IGNORE_WA_VIDEOS = "ignore_wa_videos"
         const val KEY_TREE_URI = "recovery_tree_uri"
         const val KEY_PRESERVE_TREE = "preserve_tree"
         const val KEY_SKIP_DUPES = "skip_duplicates"
         const val KEY_LAST_SESSION = "last_session"
         const val KEY_DISCLAIMER = "disclaimer_accepted"
 
-        val DEFAULT_LOCATIONS = setOf("dcim", "camera", "whatsapp", "downloads")
+        val DEFAULT_LOCATIONS = setOf("dcim", "camera", "whatsapp", "downloads", "private")
     }
 }

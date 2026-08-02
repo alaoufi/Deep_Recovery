@@ -106,6 +106,7 @@ enum class ScanLocation(
     WHATSAPP("whatsapp", R.string.loc_whatsapp),
     TELEGRAM("telegram", R.string.loc_telegram),
     DOWNLOADS("downloads", R.string.loc_downloads),
+    PRIVATE("private", R.string.loc_private),
     RAW_BLOCK("raw_block", R.string.loc_raw_block, requiresRoot = true);
 
     companion object {

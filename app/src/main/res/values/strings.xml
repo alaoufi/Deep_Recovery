@@ -19,6 +19,8 @@
     <string name="pick_folder_remove">إزالة</string>
     <string name="pick_folder_invalid">تعذّر تحديد مسار هذا المجلد</string>
     <string name="ignore_screenshots">تجاهل لقطات الشاشة</string>
+    <string name="ignore_whatsapp_images">تجاهل صور واتساب</string>
+    <string name="ignore_whatsapp_videos">تجاهل فيديو واتساب</string>
     <string name="results_view_grid">شبكة</string>
     <string name="media_images">الصور</string>
     <string name="media_videos">الفيديوهات</string>
@@ -49,6 +51,7 @@
     <string name="loc_whatsapp">WhatsApp Media</string>
     <string name="loc_telegram">Telegram Media</string>
     <string name="loc_downloads">Downloads</string>
+    <string name="loc_private">المجلد الخاص (Private / Safe)</string>
     <string name="loc_raw_block">القطاعات الخام ‎/dev/block</string>
     <string name="loc_unavailable">غير متاح على هذا الجهاز</string>
 

@@ -46,8 +46,8 @@ data class ScanRequest(
      * فيصبح محصوراً فيما يريده بالضبط وسريعاً.
      */
     val customFolders: Set<String> = emptySet(),
-    /** تجاهل مجلدات لقطات الشاشة وتسجيلها. */
-    val ignoreScreenshots: Boolean = true
+    /** أسماء مجلدات تُستبعد من المرور أصلاً (لقطات الشاشة، وسائط واتساب…). */
+    val excludedDirNames: Set<String> = emptySet()
 )
 
 /**
@@ -376,11 +376,7 @@ class DeepScanEngine(private val context: Context) {
                 roots = source.dirs,
                 includeImages = request.includeImages,
                 includeVideos = request.includeVideos,
-                excludedDirNames = if (request.ignoreScreenshots) {
-                    StorageUtils.SCREENSHOT_DIR_NAMES
-                } else {
-                    emptySet()
-                },
+                excludedDirNames = request.excludedDirNames,
                 onProgressFile = { file ->
                     checkPause()
                     if (file.length() >= MIN_CARVE_TARGET) {

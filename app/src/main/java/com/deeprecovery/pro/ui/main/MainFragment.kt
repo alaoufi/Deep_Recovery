@@ -154,6 +154,16 @@ class MainFragment : Fragment() {
             prefs.ignoreScreenshots = checked
         }
 
+        ignoreWhatsAppImagesCheck.isChecked = prefs.ignoreWhatsAppImages
+        ignoreWhatsAppImagesCheck.setOnCheckedChangeListener { _, checked ->
+            prefs.ignoreWhatsAppImages = checked
+        }
+
+        ignoreWhatsAppVideosCheck.isChecked = prefs.ignoreWhatsAppVideos
+        ignoreWhatsAppVideosCheck.setOnCheckedChangeListener { _, checked ->
+            prefs.ignoreWhatsAppVideos = checked
+        }
+
         resumeScanButton.setOnClickListener {
             val id = viewModel.state.value.resumableSessionId
             navigateToScan(id)

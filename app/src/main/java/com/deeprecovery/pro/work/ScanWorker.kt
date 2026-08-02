@@ -48,7 +48,7 @@ class ScanWorker(
             includeVideos = inputData.getBoolean(KEY_VIDEOS, true),
             detectDuplicates = inputData.getBoolean(KEY_DUPLICATES, true),
             customFolders = (inputData.getStringArray(KEY_CUSTOM_FOLDERS) ?: emptyArray()).toSet(),
-            ignoreScreenshots = inputData.getBoolean(KEY_IGNORE_SCREENSHOTS, true)
+            excludedDirNames = (inputData.getStringArray(KEY_EXCLUDED_DIRS) ?: emptyArray()).toSet()
         )
         val resumeSessionId = inputData.getLong(KEY_SESSION_ID, -1L)
 
@@ -136,7 +136,7 @@ class ScanWorker(
         const val KEY_VIDEOS = "videos"
         const val KEY_DUPLICATES = "duplicates"
         const val KEY_CUSTOM_FOLDERS = "custom_folders"
-        const val KEY_IGNORE_SCREENSHOTS = "ignore_screenshots"
+        const val KEY_EXCLUDED_DIRS = "excluded_dirs"
         const val KEY_SESSION_ID = "session_id"
         const val KEY_PROGRESS_PERCENT = "percent"
         const val KEY_PROGRESS_FILES = "files"
@@ -149,7 +149,7 @@ class ScanWorker(
             KEY_VIDEOS to request.includeVideos,
             KEY_DUPLICATES to request.detectDuplicates,
             KEY_CUSTOM_FOLDERS to request.customFolders.toTypedArray(),
-            KEY_IGNORE_SCREENSHOTS to request.ignoreScreenshots,
+            KEY_EXCLUDED_DIRS to request.excludedDirNames.toTypedArray(),
             KEY_SESSION_ID to resumeSessionId
         )
     }

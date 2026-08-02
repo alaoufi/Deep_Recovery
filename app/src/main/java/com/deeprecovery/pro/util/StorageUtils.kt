@@ -94,7 +94,12 @@ object StorageUtils {
                 "Telegram Media",
                 dirsOf(*TELEGRAM_ROOTS.toTypedArray())
             ),
-            target(ScanLocation.DOWNLOADS, "Download", dirsOf("Download", "Downloads"))
+            target(ScanLocation.DOWNLOADS, "Download", dirsOf("Download", "Downloads")),
+            target(
+                ScanLocation.PRIVATE,
+                "Private / Safe",
+                privateFolders(roots)
+            )
         )
     }
 
@@ -116,6 +121,52 @@ object StorageUtils {
     fun mediaStoreVideoUri() = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
 
     fun freeSpace(dir: File): Long = runCatching { dir.usableSpace }.getOrDefault(0L)
+
+    /** مجلدات صور واتساب. */
+    val WHATSAPP_IMAGE_DIR_NAMES = setOf(
+        "whatsapp images", "whatsapp image", "wa images"
+    )
+
+    /** مجلدات فيديو واتساب. */
+    val WHATSAPP_VIDEO_DIR_NAMES = setOf(
+        "whatsapp video", "whatsapp videos", "wa video"
+    )
+
+    /**
+     * المجلدات الخاصة/الآمنة لدى المصنّعين.
+     *
+     * لكل مصنّع مساره الخاص لخزنة الملفات، ولا يظهر في مجلدات الوسائط
+     * المعتادة، فلا يصله الفحص ما لم نستهدفه صراحةً.
+     */
+    val PRIVATE_DIR_PATHS = listOf(
+        // هواوي
+        ".privateProtect",
+        ".safebox",
+        "Android/data/com.huawei.hidisk/files/safebox",
+        ".Huawei_safe",
+        // شاومي
+        "MIUI/privacy",
+        ".privacy_safe",
+        // فيفو
+        ".vivo_hide",
+        ".VivoHiddenFiles",
+        // أوبو / ريلمي
+        ".privacy",
+        ".oppo_privacy",
+        // أسماء شائعة
+        "Private",
+        ".private",
+        ".SecureFolder",
+        ".gallery_lock",
+        ".lockedFolder",
+        ".hidden"
+    )
+
+    /** المجلدات الخاصة الموجودة فعلاً على الجهاز. */
+    fun privateFolders(volumes: List<File>): List<File> =
+        volumes
+            .flatMap { root -> PRIVATE_DIR_PATHS.map { File(root, it) } }
+            .filter { it.isDirectory }
 
     /** مجلدات لقطات الشاشة وتسجيلها — يُستثنى عادةً من الاستعادة. */
     val SCREENSHOT_DIR_NAMES = setOf(
@@ -183,6 +234,8 @@ object StorageUtils {
         }
         WHATSAPP_ROOTS.forEach { out += "$base/$it" }
         TELEGRAM_ROOTS.forEach { out += "$base/$it" }
+        // المجلدات الخاصة لا تصلها مجلدات الوسائط المعتادة
+        PRIVATE_DIR_PATHS.forEach { out += "$base/$it" }
         return out
     }
 
