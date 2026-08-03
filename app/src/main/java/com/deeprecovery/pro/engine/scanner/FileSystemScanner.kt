@@ -18,6 +18,17 @@ data class WalkMeasurement(
 )
 
 /**
+ * نتيجة العدّ السريع للملفات.
+ *
+ * @param complete هل انتهى العدّ ضمن الميزانية؟ إن لم ينتهِ فالعدد حدّ
+ *   أدنى لا إجمالي، ولا يصلح مقاماً لنسبة مئوية.
+ */
+data class FileCount(
+    val files: Int = 0,
+    val complete: Boolean = false
+)
+
+/**
  * المرور على المجلدات المتاحة بحثاً عن ملفات وسائط مخفية أو مهملة.
  *
  * يغطي حالات شائعة جداً على أندرويد:
@@ -126,6 +137,39 @@ class FileSystemScanner {
 
         return WalkMeasurement(fileCount, totalBytes, carveBytes)
     }
+
+    /**
+     * عدّ سريع للملفات بلا قراءة أي محتوى ولا حتى حجم.
+     *
+     * هذا ما يعطي مقاماً حقيقياً لنسبة الإنجاز والوقت المتبقي. وهو رخيص
+     * لأن الفحص صار موجّهاً لأماكن المحذوف؛ ومع ذلك نضع ميزانية زمنية
+     * وسقفاً للعدد حتى لا يتحوّل هو نفسه إلى سبب بطء على المجلدات
+     * الضخمة، فنكتفي حينها بمؤشر غير محدد.
+     */
+    suspend fun countFiles(
+        roots: List<File>,
+        excludedDirNames: Set<String> = emptySet(),
+        budgetMs: Long = 6_000,
+        maxFiles: Int = 300_000
+    ): FileCount {
+        val deadline = System.currentTimeMillis() + budgetMs
+        var count = 0
+        var complete = true
+
+        runCatching {
+            traverse(roots, excludedDirNames) { _ ->
+                count++
+                if (count >= maxFiles || System.currentTimeMillis() > deadline) {
+                    complete = false
+                    throw BudgetExceeded()
+                }
+            }
+        }.onFailure { if (it !is BudgetExceeded) throw it }
+
+        return FileCount(count, complete)
+    }
+
+    private class BudgetExceeded : RuntimeException()
 
     /**
      * يمشي على [roots] ويستدعي [onFile] لكل ملف وسائط مرشّح.

@@ -91,6 +91,7 @@ class DeepScanEngine(private val context: Context) {
 
     private var startTime = 0L
     private var lastProgressEmit = 0L
+    private var totalFiles = 0
     private val seenHashes = mutableMapOf<String, Long>()
     private val seenFolders = mutableSetOf<String>()
 
@@ -139,7 +140,10 @@ class DeepScanEngine(private val context: Context) {
                 source.totalBytes + (source as? ScanSource.Directory)?.carveBytes.orZero()
             }
             sessionDao.update(session.copy(totalBytes = totalBytes, status = ScanStatus.RUNNING))
-            _progress.value = _progress.value.copy(totalBytes = totalBytes)
+            _progress.value = _progress.value.copy(
+                totalBytes = totalBytes,
+                totalFiles = totalFiles
+            )
 
             // الطبقة 1: MediaStore (سريعة، تُنفَّذ دائماً)
             scanMediaStore(id, request)
@@ -174,15 +178,6 @@ class DeepScanEngine(private val context: Context) {
     private fun tickElapsed() {
         if (_progress.value.status != ScanStatus.RUNNING) return
         publish(force = true)
-    }
-
-    private fun estimateEta(progress: ScanProgress, elapsed: Long): Long {
-        if (progress.processedBytes <= 0 || progress.totalBytes <= progress.processedBytes) {
-            return -1L
-        }
-        val rate = progress.processedBytes.toDouble() / elapsed.coerceAtLeast(1)
-        if (rate <= 0.0) return -1L
-        return ((progress.totalBytes - progress.processedBytes) / rate).toLong()
     }
 
     // ------------------------------------------------------------- الجلسة
@@ -340,6 +335,25 @@ class DeepScanEngine(private val context: Context) {
                     .filter { it.isUserData }
                     .forEach { sources += ScanSource.RawDevice(it.path, it.sizeBytes) }
             }
+        }
+
+        // عدّ سريع يعطي مقاماً حقيقياً للنسبة وللوقت المتبقي
+        val directories = sources.filterIsInstance<ScanSource.Directory>()
+        if (directories.isNotEmpty()) {
+            emitStage(R.string.stage_measuring, "")
+            val scanner = FileSystemScanner()
+            var total = 0
+            var complete = true
+            for (source in directories) {
+                checkPause()
+                val count = runCatching {
+                    scanner.countFiles(source.dirs, request.excludedDirNames)
+                }.getOrDefault(FileCount())
+                total += count.files
+                if (!count.complete) complete = false
+            }
+            // عدد ناقص لا يصلح مقاماً: نبقى على مؤشر غير محدد
+            totalFiles = if (complete) total else 0
         }
 
         // نسجّل الأهداف لتتبع التقدّم والاستئناف
@@ -671,11 +685,12 @@ class DeepScanEngine(private val context: Context) {
             duplicatesFound = duplicatesCount,
             foldersFound = seenFolders.size,
             processedBytes = processedBytes,
+            totalFiles = totalFiles,
             currentSource = currentPath,
             stageLabelRes = if (stageRes != 0) stageRes else current.stageLabelRes,
             elapsedMs = elapsed
         )
-        _progress.value = snapshot.copy(etaMs = estimateEta(snapshot, elapsed))
+        _progress.value = snapshot.copy(etaMs = snapshot.estimateEta(elapsed))
     }
 
     private suspend fun emitStage(stage: Int, sourceName: String) {

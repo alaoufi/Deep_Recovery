@@ -79,6 +79,7 @@
     <string name="scan_failed">تعذّر إكمال الفحص</string>
 
     <string name="stage_preparing">تجهيز الفحص…</string>
+    <string name="stage_measuring">حساب حجم الفحص…</string>
     <string name="stage_mediastore">تحليل Media Store…</string>
     <string name="stage_folders">فحص المجلدات…</string>
     <string name="stage_deleted_only">أماكن المحذوف</string>

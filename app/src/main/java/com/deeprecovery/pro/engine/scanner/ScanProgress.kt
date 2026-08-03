@@ -11,6 +11,8 @@ data class ScanProgress(
     val processedBytes: Long = 0,
     val totalBytes: Long = 0,
     val filesScanned: Int = 0,
+    /** إجمالي الملفات المتوقع فحصها، أو 0 إن تعذّر حسابه. */
+    val totalFiles: Int = 0,
     val filesFound: Int = 0,
     val imagesFound: Int = 0,
     val videosFound: Int = 0,
@@ -20,10 +22,20 @@ data class ScanProgress(
     val etaMs: Long = -1,
     val errorMessage: String? = null
 ) {
-    /** نسبة الإنجاز 0..100. */
+    /**
+     * نسبة الإنجاز 0..100.
+     *
+     * تُحسب بعدد الملفات في فحص المجلدات، وبالبايتات في فحص القطاعات
+     * الخام حيث الحجم معروف مسبقاً.
+     */
     val percent: Int
-        get() = if (totalBytes <= 0) 0
-        else ((processedBytes.toDouble() / totalBytes) * 100).toInt().coerceIn(0, 100)
+        get() = when {
+            totalFiles > 0 ->
+                ((filesScanned.toDouble() / totalFiles) * 100).toInt().coerceIn(0, 100)
+            totalBytes > 0 ->
+                ((processedBytes.toDouble() / totalBytes) * 100).toInt().coerceIn(0, 100)
+            else -> 0
+        }
 
     val isActive: Boolean
         get() = status == ScanStatus.RUNNING || status == ScanStatus.PAUSED
@@ -34,5 +46,31 @@ data class ScanProgress(
      * جامدة على الصفر توحي بأن التطبيق معلّق.
      */
     val isIndeterminate: Boolean
-        get() = totalBytes <= 0
+        get() = totalFiles <= 0 && totalBytes <= 0
+
+    /**
+     * الوقت المتبقي بالمللي ثانية، أو -1 إذا تعذّر تقديره بعد.
+     *
+     * يُحسب من معدّل الملفات في الثانية حين يكون عددها الكلي معروفاً —
+     * وهو الحال الغالب في الفحص الموجّه — ومن معدّل البايتات في فحص
+     * القطاعات الخام حيث الحجم معروف مسبقاً.
+     *
+     * لا نقدّر شيئاً في أول ثانية: المعدّل حينها ضجيج يعطي أرقاماً
+     * سخيفة تتقلّب أمام المستخدم.
+     */
+    fun estimateEta(elapsedMs: Long): Long {
+        if (elapsedMs < 1_000) return -1L
+
+        if (totalFiles > 0 && filesScanned > 0) {
+            if (filesScanned >= totalFiles) return 0L
+            val perMs = filesScanned.toDouble() / elapsedMs
+            if (perMs <= 0.0) return -1L
+            return ((totalFiles - filesScanned) / perMs).toLong()
+        }
+
+        if (processedBytes <= 0 || totalBytes <= processedBytes) return -1L
+        val rate = processedBytes.toDouble() / elapsedMs
+        if (rate <= 0.0) return -1L
+        return ((totalBytes - processedBytes) / rate).toLong()
+    }
 }
