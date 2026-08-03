@@ -18,7 +18,9 @@ data class FolderSummary(
     val imageCount: Int,
     val videoCount: Int,
     val totalBytes: Long,
-    val excellentCount: Int
+    val excellentCount: Int,
+    /** عيّنة من محتوى المجلد لعرضها كمصغّرة — فلا يظهر المجلد فارغاً. */
+    val previewSource: String? = null
 )
 
 @Dao
@@ -159,7 +161,8 @@ interface RecoveredFileDao {
                SUM(CASE WHEN mediaType = 'IMAGE' THEN 1 ELSE 0 END) AS imageCount,
                SUM(CASE WHEN mediaType = 'VIDEO' THEN 1 ELSE 0 END) AS videoCount,
                SUM(sizeBytes) AS totalBytes,
-               SUM(CASE WHEN quality = 'EXCELLENT' THEN 1 ELSE 0 END) AS excellentCount
+               SUM(CASE WHEN quality = 'EXCELLENT' THEN 1 ELSE 0 END) AS excellentCount,
+               MIN(COALESCE(contentUri, stagedPath)) AS previewSource
         FROM recovered_files
         WHERE sessionId = :sessionId AND (:hideDuplicates = 0 OR isDuplicate = 0)
         GROUP BY folderPath, folderLabel

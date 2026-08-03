@@ -37,6 +37,7 @@ class ResultsFragment : Fragment() {
     private val viewModel: ResultsViewModel by viewModels()
 
     private lateinit var fileAdapter: RecoveredFileAdapter
+    private lateinit var gridAdapter: com.deeprecovery.pro.ui.adapter.MediaGridAdapter
 
     /** نتيجة نافذة الحذف التي يعرضها النظام. */
     private val systemDelete = registerForActivityResult(
@@ -83,26 +84,31 @@ class ResultsFragment : Fragment() {
             onToggleSelect = { file -> viewModel.toggleSelection(file.id) }
         )
 
+        gridAdapter = com.deeprecovery.pro.ui.adapter.MediaGridAdapter(
+            onClick = { file ->
+                findNavController().navigate(
+                    R.id.action_results_to_preview,
+                    bundleOf("fileId" to file.id)
+                )
+            },
+            onToggleSelect = { file -> viewModel.toggleSelection(file.id) }
+        )
+
         folderAdapter = FolderAdapter(
             onOpen = { folder -> viewModel.openFolder(folder.folderPath) },
             onRecoverAll = { folder -> recoverWholeFolder(folder.folderPath) },
             onToggleSelect = { folder -> viewModel.toggleFolderSelection(folder.folderPath) }
         )
 
-        binding.resultsList.layoutManager = LinearLayoutManager(requireContext())
-        binding.resultsList.adapter = fileAdapter
+        applyView(ResultsView.GRID)
     }
 
     private fun setupFilters() = with(binding) {
         searchInput.doAfterTextChanged { text -> viewModel.search(text?.toString().orEmpty()) }
 
-        chipFolders.setOnClickListener {
-            if (chipFolders.isChecked) {
-                viewModel.openFolder(null)
-            } else {
-                viewModel.setView(ResultsView.FILES)
-            }
-        }
+        chipGrid.setOnClickListener { viewModel.setView(ResultsView.GRID) }
+        chipList.setOnClickListener { viewModel.setView(ResultsView.FILES) }
+        chipFolders.setOnClickListener { viewModel.openFolder(null) }
 
         chipAll.setOnClickListener { viewModel.filterMediaType(null) }
         chipImages.setOnClickListener { viewModel.filterMediaType(MediaType.IMAGE) }
@@ -203,20 +209,13 @@ class ResultsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-                launch {
-                    viewModel.view.collectLatest { view ->
-                        binding.resultsList.adapter = when (view) {
-                            ResultsView.FILES -> fileAdapter
-                            ResultsView.FOLDERS -> folderAdapter
-                        }
-                        binding.chipFolders.isChecked = view == ResultsView.FOLDERS
-                    }
-                }
+                launch { viewModel.view.collectLatest { applyView(it) } }
 
                 launch {
                     viewModel.files.collectLatest { files ->
                         fileAdapter.submitList(files)
-                        if (viewModel.view.value == ResultsView.FILES) {
+                        gridAdapter.submitList(files)
+                        if (viewModel.view.value != ResultsView.FOLDERS) {
                             updateEmptyState(files.isEmpty())
                         }
                     }
@@ -234,6 +233,7 @@ class ResultsFragment : Fragment() {
                 launch {
                     viewModel.selectedIds.collectLatest { ids ->
                         fileAdapter.submitSelection(ids)
+                        gridAdapter.submitSelection(ids)
                         binding.selectionText.text =
                             getString(R.string.selected_count, ids.size)
                     }
@@ -255,6 +255,30 @@ class ResultsFragment : Fragment() {
                 }
             }
         }
+    }
+
+    /** الشبكة ثلاثة أعمدة؛ القائمة والمجلدات عمود واحد. */
+    private fun applyView(view: ResultsView) = with(binding) {
+        when (view) {
+            ResultsView.GRID -> {
+                resultsList.layoutManager =
+                    androidx.recyclerview.widget.GridLayoutManager(requireContext(), 3)
+                resultsList.adapter = gridAdapter
+            }
+
+            ResultsView.FILES -> {
+                resultsList.layoutManager = LinearLayoutManager(requireContext())
+                resultsList.adapter = fileAdapter
+            }
+
+            ResultsView.FOLDERS -> {
+                resultsList.layoutManager = LinearLayoutManager(requireContext())
+                resultsList.adapter = folderAdapter
+            }
+        }
+        chipGrid.isChecked = view == ResultsView.GRID
+        chipList.isChecked = view == ResultsView.FILES
+        chipFolders.isChecked = view == ResultsView.FOLDERS
     }
 
     private fun updateEmptyState(empty: Boolean) {

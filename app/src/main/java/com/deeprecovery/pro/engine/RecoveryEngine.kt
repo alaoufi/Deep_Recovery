@@ -131,7 +131,9 @@ class RecoveryEngine(private val context: Context) {
             }
 
             val name = uniqueName(entity, usedNames, relativeFolder)
-            val result = runCatching { writer.write(relativeFolder, name, source) }
+            val result = runCatching {
+                writer.write(relativeFolder, name, entity.mimeType, source)
+            }
             result.onSuccess { written ->
                 succeeded++
                 bytes += written.bytes
@@ -221,7 +223,12 @@ class RecoveryEngine(private val context: Context) {
     private interface DestinationWriter {
         val destinationLabel: String
         val foldersCreated: Int
-        fun write(relativeFolder: String, name: String, source: () -> java.io.InputStream): WriteResult
+        fun write(
+            relativeFolder: String,
+            name: String,
+            mimeType: String,
+            source: () -> java.io.InputStream
+        ): WriteResult
     }
 
     private fun createWriter(destination: Uri?): DestinationWriter =
@@ -249,11 +256,18 @@ class RecoveryEngine(private val context: Context) {
         override val destinationLabel: String = root.name ?: treeUri.toString()
         override val foldersCreated: Int get() = created
 
-        override fun write(relativeFolder: String, name: String, source: () -> java.io.InputStream): WriteResult {
+        override fun write(
+            relativeFolder: String,
+            name: String,
+            mimeType: String,
+            source: () -> java.io.InputStream
+        ): WriteResult {
             val dir = resolveFolder(relativeFolder)
             val existing = dir.findFile(name)
             existing?.delete()
-            val target = dir.createFile("application/octet-stream", name)
+            // النوع الصحيح مهم: بعض مزوّدي التخزين يشتقّون الامتداد منه،
+            // فيخرج الملف باسم أو امتداد خاطئ إن أرسلنا نوعاً عاماً
+            val target = dir.createFile(mimeType.ifBlank { "application/octet-stream" }, name)
                 ?: error("تعذّر إنشاء الملف في الوجهة")
 
             var written = 0L
@@ -312,7 +326,12 @@ class RecoveryEngine(private val context: Context) {
         override val destinationLabel: String = root.absolutePath
         override val foldersCreated: Int get() = created
 
-        override fun write(relativeFolder: String, name: String, source: () -> java.io.InputStream): WriteResult {
+        override fun write(
+            relativeFolder: String,
+            name: String,
+            mimeType: String,
+            source: () -> java.io.InputStream
+        ): WriteResult {
             val dir = if (relativeFolder.isBlank()) root else File(root, sanitize(relativeFolder))
             if (!dir.exists()) {
                 if (dir.mkdirs()) created++ else error("تعذّر إنشاء المجلد ${dir.absolutePath}")

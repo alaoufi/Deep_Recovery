@@ -20,8 +20,13 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** طريقة عرض النتائج: قائمة ملفات أو مجلدات. */
-enum class ResultsView { FILES, FOLDERS }
+/**
+ * طريقة عرض النتائج.
+ *
+ * المقصود من الاستعادة هو محتوى المجلد لا المجلد نفسه، لذلك العرض
+ * الافتراضي شبكة الصور والفيديوهات مباشرة.
+ */
+enum class ResultsView { GRID, FILES, FOLDERS }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ResultsViewModel(app: Application) : AndroidViewModel(app) {
@@ -34,7 +39,7 @@ class ResultsViewModel(app: Application) : AndroidViewModel(app) {
     private val _filter = MutableStateFlow(ResultFilter())
     val filter: StateFlow<ResultFilter> = _filter.asStateFlow()
 
-    private val _view = MutableStateFlow(ResultsView.FILES)
+    private val _view = MutableStateFlow(ResultsView.GRID)
     val view: StateFlow<ResultsView> = _view.asStateFlow()
 
     private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
@@ -87,7 +92,8 @@ class ResultsViewModel(app: Application) : AndroidViewModel(app) {
     /** يفتح مجلداً محدداً لعرض ملفاته فقط. */
     fun openFolder(folderPath: String?) {
         _filter.value = _filter.value.copy(folderPath = folderPath)
-        _view.value = if (folderPath == null) ResultsView.FOLDERS else ResultsView.FILES
+        // فتح مجلد يعرض محتواه صوراً وفيديوهات لا مجلدات فرعية
+        _view.value = if (folderPath == null) ResultsView.FOLDERS else ResultsView.GRID
     }
 
     fun toggleSelection(id: Long) {

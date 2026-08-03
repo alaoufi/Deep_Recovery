@@ -67,6 +67,34 @@ class FolderAdapter(
             folderSize.text = context.getString(R.string.folder_files_count, item.fileCount) +
                 " • " + FormatUtils.formatSize(context, item.totalBytes)
 
+            // مصغّرة من محتوى المجلد: المقصود هو ما بداخله لا المجلد نفسه
+            val preview = item.previewSource
+            if (preview.isNullOrBlank()) {
+                folderPreview.setImageResource(R.drawable.ic_folder)
+                folderPreview.setPadding(10, 10, 10, 10)
+                folderPreview.imageTintList = android.content.res.ColorStateList.valueOf(
+                    com.google.android.material.color.MaterialColors.getColor(
+                        root,
+                        com.google.android.material.R.attr.colorPrimary
+                    )
+                )
+            } else {
+                folderPreview.setPadding(0, 0, 0, 0)
+                folderPreview.imageTintList = null
+                val source: Any = if (preview.startsWith("content://")) {
+                    android.net.Uri.parse(preview)
+                } else {
+                    java.io.File(preview)
+                }
+                com.bumptech.glide.Glide.with(folderPreview)
+                    .load(source)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                    .placeholder(R.drawable.ic_folder)
+                    .error(R.drawable.ic_folder)
+                    .centerCrop()
+                    .into(folderPreview)
+            }
+
             root.setOnClickListener { onOpen(item) }
             root.setOnLongClickListener {
                 onToggleSelect(item)
