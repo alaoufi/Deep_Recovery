@@ -89,7 +89,8 @@
     <!-- النتائج -->
     <string name="results_title">النتائج</string>
     <string name="results_empty">لم يتم العثور على ملفات قابلة للاستعادة</string>
-    <string name="results_empty_hint">جرّب الفحص الكامل، أو فعّل الوضع المتقدم إذا كان الجهاز يدعم Root.</string>
+    <string name="results_empty_hint">السجلات التي فقدت بياناتها لا تُعرض لأنها غير قابلة للاستعادة فعلاً. جرّب منح إذن الوصول لكل الملفات، أو الفحص العميق، أو الوضع المتقدم إذا كان الجهاز يدعم Root.</string>
+    <string name="results_select_hint">اضغط مطولاً على أي عنصر لتحديده</string>
     <string name="results_search_hint">بحث في النتائج…</string>
     <string name="results_view_files">ملفات</string>
     <string name="results_view_folders">مجلدات</string>

@@ -92,6 +92,8 @@ class DeepScanEngine(private val context: Context) {
     private var startTime = 0L
     private var lastProgressEmit = 0L
     private var totalFiles = 0
+    /** سجلات بلا بايتات — تُستبعد بدل عرضها كنتائج مضلّلة. */
+    private var unrecoverableCount = 0
     private val seenHashes = mutableMapOf<String, Long>()
     private val seenFolders = mutableSetOf<String>()
 
@@ -538,11 +540,41 @@ class DeepScanEngine(private val context: Context) {
 
     // ------------------------------------------------------------- الحفظ
 
+    /**
+     * هل هذا العنصر قابل للاستعادة فعلاً؟
+     *
+     * سجل MediaStore قد يبقى بعد اختفاء بايتات الملف، فيظهر بحجم صفر:
+     * لا صورة مصغّرة ولا تشغيل ولا شيء يُنسخ. عرضه كنتيجة قابلة
+     * للاستعادة تضليل، فنستبعده.
+     *
+     * الاستثناء عناصر سلة مهملات النظام: لا يملك التطبيق فتحها، لكنها
+     * تُستعاد فعلاً بأمر إلغاء الحذف.
+     */
+    private fun isRecoverable(discovered: DiscoveredFile): Boolean {
+        if (discovered.note == "trashed") return true
+        if (discovered.sizeBytes <= 0) return false
+
+        discovered.uri?.let { raw ->
+            val uri = runCatching { android.net.Uri.parse(raw) }.getOrNull() ?: return false
+            return runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.read() >= 0 } ?: false
+            }.getOrDefault(false)
+        }
+
+        val file = discovered.path?.let(::File) ?: return false
+        return file.isFile && file.canRead() && file.length() > 0
+    }
+
     private suspend fun persistDiscovered(
         sessionId: Long,
         discovered: DiscoveredFile,
         detectDuplicates: Boolean
     ) {
+        if (!isRecoverable(discovered)) {
+            unrecoverableCount++
+            return
+        }
+
         val hash = discovered.path?.let { com.deeprecovery.pro.util.HashUtils.contentHash(File(it)) }
         val duplicateOf = if (detectDuplicates && !hash.isNullOrEmpty()) seenHashes[hash] else null
 

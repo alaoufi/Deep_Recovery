@@ -236,6 +236,9 @@ class ResultsFragment : Fragment() {
                         gridAdapter.submitSelection(ids)
                         binding.selectionText.text =
                             getString(R.string.selected_count, ids.size)
+                        // الشريط كان يغطي النتائج دائماً؛ لا داعي له بلا تحديد
+                        binding.actionBarCard.visibility =
+                            if (ids.isEmpty()) View.GONE else View.VISIBLE
                     }
                 }
 
