@@ -30,7 +30,9 @@ data class RecoveryUiState(
     val foldersCreated: Int = 0,
     val bytesWritten: Long = 0,
     val successRate: Int = 0,
-    val destination: String = ""
+    val destination: String = "",
+    /** أسباب فشل أول الملفات — تُعرض في التقرير. */
+    val failures: List<String> = emptyList()
 )
 
 class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
@@ -131,7 +133,10 @@ class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
                                 foldersCreated = out.getInt(RecoveryWorker.KEY_RESULT_FOLDERS, 0),
                                 bytesWritten = out.getLong(RecoveryWorker.KEY_RESULT_BYTES, 0),
                                 successRate = out.getInt(RecoveryWorker.KEY_RESULT_RATE, 0),
-                                destination = out.getString(RecoveryWorker.KEY_RESULT_DESTINATION) ?: ""
+                                destination = out.getString(RecoveryWorker.KEY_RESULT_DESTINATION) ?: "",
+                                failures = out.getStringArray(RecoveryWorker.KEY_RESULT_FAILURES)
+                                    ?.toList()
+                                    .orEmpty()
                             )
                         }
 

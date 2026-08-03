@@ -90,7 +90,9 @@ class RecoveryWorker(
                 KEY_RESULT_FOLDERS to report.foldersCreated,
                 KEY_RESULT_BYTES to report.bytesWritten,
                 KEY_RESULT_RATE to report.successRate,
-                KEY_RESULT_DESTINATION to report.destination
+                KEY_RESULT_DESTINATION to report.destination,
+                // أسباب الفشل كانت تُجمَع ولا تُعرض، فيبدو الفشل صامتاً
+                KEY_RESULT_FAILURES to report.failures.take(5).toTypedArray()
             )
         )
     }
@@ -142,6 +144,7 @@ class RecoveryWorker(
         const val KEY_RESULT_BYTES = "bytes"
         const val KEY_RESULT_RATE = "rate"
         const val KEY_RESULT_DESTINATION = "destination"
+        const val KEY_RESULT_FAILURES = "failures"
 
         fun inputForFolder(
             sessionId: Long,

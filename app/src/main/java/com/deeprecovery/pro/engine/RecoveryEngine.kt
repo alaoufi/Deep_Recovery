@@ -132,7 +132,13 @@ class RecoveryEngine(private val context: Context) {
 
             val name = uniqueName(entity, usedNames, relativeFolder)
             val result = runCatching {
-                writer.write(relativeFolder, name, entity.mimeType, source)
+                writer.write(
+                    relativeFolder,
+                    name,
+                    entity.mimeType,
+                    entity.mediaType == com.deeprecovery.pro.data.model.MediaType.VIDEO,
+                    source
+                )
             }
             result.onSuccess { written ->
                 succeeded++
@@ -227,16 +233,114 @@ class RecoveryEngine(private val context: Context) {
             relativeFolder: String,
             name: String,
             mimeType: String,
+            isVideo: Boolean,
             source: () -> java.io.InputStream
         ): WriteResult
     }
 
-    private fun createWriter(destination: Uri?): DestinationWriter =
-        if (destination != null) {
-            SafWriter(context, destination)
-        } else {
+    /**
+     * يختار طريقة الكتابة إلى الوجهة.
+     *
+     * الكتابة المباشرة إلى مجلد عام محجوبة على أندرويد ١٠+ ما لم يُمنح
+     * إذن الوصول لكل الملفات، فكانت الاستعادة تفشل بصمت لكل ملف. لذلك
+     * الوجهة الافتراضية الآن عبر MediaStore: تعمل بلا أي إذن تخزين
+     * وتظهر الملفات في المعرض مباشرة.
+     */
+    private fun createWriter(destination: Uri?): DestinationWriter = when {
+        destination != null -> SafWriter(context, destination)
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q ->
+            MediaStoreWriter(context)
+        else ->
             DirectWriter(File(android.os.Environment.getExternalStorageDirectory(), ROOT_FOLDER_NAME))
+    }
+
+    /**
+     * كتابة عبر MediaStore — الوجهة الافتراضية على أندرويد ١٠+.
+     *
+     * لا تحتاج أي إذن تخزين، وتضع الملفات تحت `Pictures/DeepRecoveryPro`
+     * أو `Movies/DeepRecoveryPro` مع الحفاظ على شجرة المجلدات الأصلية،
+     * فتظهر في المعرض فور انتهاء الاستعادة.
+     */
+    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
+    private class MediaStoreWriter(private val context: Context) : DestinationWriter {
+
+        private val createdFolders = mutableSetOf<String>()
+
+        override val destinationLabel: String = ROOT_FOLDER_NAME
+        override val foldersCreated: Int get() = createdFolders.size
+
+        override fun write(
+            relativeFolder: String,
+            name: String,
+            mimeType: String,
+            isVideo: Boolean,
+            source: () -> java.io.InputStream
+        ): WriteResult {
+            val baseDir = if (isVideo) {
+                android.os.Environment.DIRECTORY_MOVIES
+            } else {
+                android.os.Environment.DIRECTORY_PICTURES
+            }
+            val relative = buildString {
+                append(baseDir).append('/').append(ROOT_FOLDER_NAME)
+                val clean = sanitize(relativeFolder)
+                if (clean.isNotEmpty()) append('/').append(clean)
+            }
+            createdFolders += relative
+
+            val collection = if (isVideo) {
+                android.provider.MediaStore.Video.Media
+                    .getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            } else {
+                android.provider.MediaStore.Images.Media
+                    .getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            }
+
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(
+                    android.provider.MediaStore.MediaColumns.MIME_TYPE,
+                    mimeType.ifBlank { if (isVideo) "video/mp4" else "image/jpeg" }
+                )
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, relative)
+                // معلّق أثناء الكتابة حتى لا يقرأه المعرض ناقصاً
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+
+            val uri = context.contentResolver.insert(collection, values)
+                ?: error("تعذّر إنشاء الملف في المعرض")
+
+            var written = 0L
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    source().use { input ->
+                        val buffer = ByteArray(BUFFER)
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read <= 0) break
+                            out.write(buffer, 0, read)
+                            written += read
+                        }
+                        out.flush()
+                    }
+                } ?: error("تعذّر فتح مجرى الكتابة")
+            } catch (error: Throwable) {
+                runCatching { context.contentResolver.delete(uri, null, null) }
+                throw error
+            }
+
+            val done = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+            }
+            context.contentResolver.update(uri, done, null, null)
+
+            return WriteResult(uri.toString(), written)
         }
+
+        private fun sanitize(path: String): String = path.split('/')
+            .filter { it.isNotBlank() && it != "." && it != ".." }
+            .joinToString("/") { it.replace(Regex("[\\\\:*?\"<>|]"), "_") }
+    }
 
     /**
      * كتابة عبر Storage Access Framework مع إنشاء شجرة المجلدات.
@@ -260,6 +364,7 @@ class RecoveryEngine(private val context: Context) {
             relativeFolder: String,
             name: String,
             mimeType: String,
+            isVideo: Boolean,
             source: () -> java.io.InputStream
         ): WriteResult {
             val dir = resolveFolder(relativeFolder)
@@ -330,6 +435,7 @@ class RecoveryEngine(private val context: Context) {
             relativeFolder: String,
             name: String,
             mimeType: String,
+            isVideo: Boolean,
             source: () -> java.io.InputStream
         ): WriteResult {
             val dir = if (relativeFolder.isBlank()) root else File(root, sanitize(relativeFolder))

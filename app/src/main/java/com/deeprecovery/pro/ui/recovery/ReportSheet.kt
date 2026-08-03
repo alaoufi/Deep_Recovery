@@ -45,6 +45,23 @@ class ReportSheet : BottomSheetDialogFragment() {
         )
         addRow(R.string.report_destination, args.getString(ARG_DESTINATION).orEmpty())
 
+        // بلا هذا يبقى الفشل صامتاً ولا يعرف المستخدم لماذا لم يُستعَد شيء
+        val failures = args.getStringArray(ARG_FAILURES).orEmpty()
+        if (failures.isNotEmpty()) {
+            addRow(R.string.report_failure_reasons, "")
+            failures.forEach { reason ->
+                val row = TableRow(requireContext())
+                row.addView(TextView(requireContext()).apply {
+                    text = reason
+                    setPadding(0, 4, 0, 4)
+                    setTextAppearance(
+                        com.google.android.material.R.style.TextAppearance_Material3_BodySmall
+                    )
+                })
+                binding.reportTable.addView(row)
+            }
+        }
+
         binding.reportDoneButton.setOnClickListener { dismiss() }
     }
 
@@ -83,6 +100,7 @@ class ReportSheet : BottomSheetDialogFragment() {
         private const val ARG_FOLDERS = "folders"
         private const val ARG_BYTES = "bytes"
         private const val ARG_DESTINATION = "destination"
+        private const val ARG_FAILURES = "failures"
 
         fun newInstance(state: RecoveryUiState) = ReportSheet().apply {
             arguments = Bundle().apply {
@@ -93,6 +111,7 @@ class ReportSheet : BottomSheetDialogFragment() {
                 putInt(ARG_FOLDERS, state.foldersCreated)
                 putLong(ARG_BYTES, state.bytesWritten)
                 putString(ARG_DESTINATION, state.destination)
+                putStringArray(ARG_FAILURES, state.failures.toTypedArray())
             }
         }
     }
