@@ -42,6 +42,15 @@
                     android:textColor="?attr/colorOnPrimaryContainer" />
 
                 <TextView
+                    android:id="@+id/versionText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textAppearance="?attr/textAppearanceLabelSmall"
+                    android:textColor="?attr/colorOnPrimaryContainer"
+                    tools:text="الإصدار 1.6.0" />
+
+                <TextView
                     android:id="@+id/freeSpaceText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

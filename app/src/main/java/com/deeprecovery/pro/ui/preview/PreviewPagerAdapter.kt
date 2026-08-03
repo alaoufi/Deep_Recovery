@@ -41,7 +41,8 @@ class PreviewPagerAdapter(
 
         fun bind(item: RecoveredFileEntity) = with(binding) {
             // Uri أولاً: المسار المباشر محجوب على أندرويد 10+
-            val uri = item.contentUri?.let(Uri::parse)
+            val uri = item.recoveredUri?.let(Uri::parse)
+                ?: item.contentUri?.let(Uri::parse)
                 ?: item.stagedPath?.let(::File)?.takeIf { it.exists() }?.let(Uri::fromFile)
 
             pagePlayer.visibility = View.GONE

@@ -125,8 +125,8 @@ data class RecoveredFileEntity(
  * نفضّل content Uri عندما يكون متاحاً لأن المسار المباشر محجوب على
  * أندرويد 10+، ونعود إلى المسار للملفات المنحوتة داخل مساحة التطبيق.
  */
-val RecoveredFileEntity.readableSource: Any?
-    get() = contentUri ?: stagedPath
+val RecoveredFileEntity.readableSource: String?
+    get() = recoveredUri ?: contentUri ?: stagedPath
 
 /** سجل عملية استعادة لعرض تقرير النجاح. */
 @Entity(tableName = "recovery_reports")

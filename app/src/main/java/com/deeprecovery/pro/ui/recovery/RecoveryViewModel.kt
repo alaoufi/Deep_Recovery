@@ -32,7 +32,9 @@ data class RecoveryUiState(
     val successRate: Int = 0,
     val destination: String = "",
     /** أسباب فشل أول الملفات — تُعرض في التقرير. */
-    val failures: List<String> = emptyList()
+    val failures: List<String> = emptyList(),
+    /** عناصر سلة المهملات التي تحتاج أمر إلغاء حذف من النظام. */
+    val needsUntrash: List<String> = emptyList()
 )
 
 class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
@@ -135,6 +137,9 @@ class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
                                 successRate = out.getInt(RecoveryWorker.KEY_RESULT_RATE, 0),
                                 destination = out.getString(RecoveryWorker.KEY_RESULT_DESTINATION) ?: "",
                                 failures = out.getStringArray(RecoveryWorker.KEY_RESULT_FAILURES)
+                                    ?.toList()
+                                    .orEmpty(),
+                                needsUntrash = out.getStringArray(RecoveryWorker.KEY_RESULT_UNTRASH)
                                     ?.toList()
                                     .orEmpty()
                             )

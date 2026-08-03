@@ -22,7 +22,15 @@ data class RecoveryReport(
     val foldersCreated: Int,
     val bytesWritten: Long,
     val destination: String,
-    val failures: List<String>
+    val failures: List<String>,
+    /**
+     * عناصر في سلة مهملات النظام.
+     *
+     * لا يمكن فتح بايتاتها لنسخها — يملكها تطبيق آخر — واستعادتها تتم
+     * بأمر إلغاء الحذف الذي ينفّذه النظام بموافقة المستخدم، فتعود إلى
+     * مكانها الأصلي وتظهر في المعرض فوراً.
+     */
+    val needsUntrash: List<String> = emptyList()
 ) {
     val successRate: Int
         get() = if (requested == 0) 0 else (succeeded * 100 / requested)
@@ -100,6 +108,7 @@ class RecoveryEngine(private val context: Context) {
         val startedAt = System.currentTimeMillis()
         val writer = createWriter(destination)
         val failures = mutableListOf<String>()
+        val needsUntrash = mutableListOf<String>()
         var succeeded = 0
         var skipped = 0
         var bytes = 0L
@@ -124,9 +133,15 @@ class RecoveryEngine(private val context: Context) {
                 )
             )
 
+            // عنصر في سلة مهملات النظام: يُستعاد بأمر إلغاء الحذف لا بالنسخ
+            if (entity.note == "trashed" && !entity.contentUri.isNullOrBlank()) {
+                needsUntrash += entity.contentUri
+                return@forEachIndexed
+            }
+
             val source = openSource(entity)
             if (source == null) {
-                failures += "${entity.displayName}: المصدر غير متاح"
+                failures += "${entity.displayName}: تعذّر فتح الملف للقراءة"
                 return@forEachIndexed
             }
 
@@ -153,12 +168,13 @@ class RecoveryEngine(private val context: Context) {
         val report = RecoveryReport(
             requested = files.size,
             succeeded = succeeded,
-            failed = files.size - succeeded - skipped,
+            failed = files.size - succeeded - skipped - needsUntrash.size,
             skippedDuplicates = skipped,
             foldersCreated = writer.foldersCreated,
             bytesWritten = bytes,
             destination = writer.destinationLabel,
-            failures = failures
+            failures = failures,
+            needsUntrash = needsUntrash
         )
 
         reportDao.insert(

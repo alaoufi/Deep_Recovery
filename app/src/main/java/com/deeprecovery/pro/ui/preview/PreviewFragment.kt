@@ -110,7 +110,8 @@ class PreviewFragment : Fragment() {
 
     /** يشغّل الفيديو داخل صفحته الحالية فقط. */
     private fun playVideo(file: RecoveredFileEntity, holder: PreviewPagerAdapter.PageHolder) {
-        val uri = file.contentUri?.let(Uri::parse)
+        val uri = file.recoveredUri?.let(Uri::parse)
+            ?: file.contentUri?.let(Uri::parse)
             ?: file.stagedPath?.let(::File)?.takeIf { it.exists() }?.let(Uri::fromFile)
             ?: return
 

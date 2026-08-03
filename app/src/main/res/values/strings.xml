@@ -178,6 +178,13 @@
     <string name="report_bytes">الحجم المستعاد</string>
     <string name="report_destination">مكان الحفظ</string>
     <string name="report_failure_reasons">أسباب الفشل</string>
+    <string name="report_open_album">فتح ألبوم الملفات المستردة</string>
+    <string name="report_untrash_reason">في سلة مهملات النظام</string>
+    <string name="report_untrash">%1$d ملف في سلة مهملات النظام — يحتاج موافقتك لإرجاعه</string>
+    <string name="report_untrash_action">إرجاع من سلة المهملات</string>
+    <string name="report_untrash_done">تم إرجاع الملفات إلى أماكنها الأصلية</string>
+    <string name="report_open_album_failed">تعذّر فتح المعرض — الملفات في %1$s</string>
+    <string name="app_version">الإصدار %1$s</string>
     <string name="report_done">تم</string>
 
     <!-- الخصوصية والتنويه -->

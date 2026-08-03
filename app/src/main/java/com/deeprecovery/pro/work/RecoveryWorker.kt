@@ -92,7 +92,8 @@ class RecoveryWorker(
                 KEY_RESULT_RATE to report.successRate,
                 KEY_RESULT_DESTINATION to report.destination,
                 // أسباب الفشل كانت تُجمَع ولا تُعرض، فيبدو الفشل صامتاً
-                KEY_RESULT_FAILURES to report.failures.take(5).toTypedArray()
+                KEY_RESULT_FAILURES to report.failures.take(5).toTypedArray(),
+                KEY_RESULT_UNTRASH to report.needsUntrash.toTypedArray()
             )
         )
     }
@@ -145,6 +146,7 @@ class RecoveryWorker(
         const val KEY_RESULT_RATE = "rate"
         const val KEY_RESULT_DESTINATION = "destination"
         const val KEY_RESULT_FAILURES = "failures"
+        const val KEY_RESULT_UNTRASH = "untrash"
 
         fun inputForFolder(
             sessionId: Long,

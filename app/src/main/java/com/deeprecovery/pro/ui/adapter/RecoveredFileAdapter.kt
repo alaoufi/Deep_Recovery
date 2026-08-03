@@ -94,7 +94,10 @@ class RecoveredFileAdapter(
             }
 
             // Uri أولاً: المسار المباشر محجوب على أندرويد 10+
-            val source: Any? = item.contentUri?.let(Uri::parse) ?: item.stagedPath?.let(::File)
+            // الملف المستَرد أولاً: موقعه الجديد مضمون القراءة
+            val source: Any? = item.recoveredUri?.let(Uri::parse)
+                ?: item.contentUri?.let(Uri::parse)
+                ?: item.stagedPath?.let(::File)
             Glide.with(thumbnail)
                 .load(source)
                 .diskCacheStrategy(DiskCacheStrategy.NONE)

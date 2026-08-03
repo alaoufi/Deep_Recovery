@@ -59,10 +59,29 @@
         android:stretchColumns="1" />
 
     <com.google.android.material.button.MaterialButton
+        android:id="@+id/untrashButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/report_untrash_action"
+        android:visibility="gone"
+        app:icon="@drawable/ic_restore"
+        tools:visibility="visible" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/openAlbumButton"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/report_open_album"
+        app:icon="@drawable/ic_folder" />
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/reportDoneButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="8dp"
         android:text="@string/report_done" />
 
 </LinearLayout>

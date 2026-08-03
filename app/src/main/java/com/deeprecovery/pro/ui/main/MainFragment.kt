@@ -89,6 +89,10 @@ class MainFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // رقم النسخة ظاهر دائماً حتى يمكن تحديد أي إصدار قيد الاختبار
+        binding.versionText.text =
+            getString(R.string.app_version, com.deeprecovery.pro.BuildConfig.VERSION_NAME)
+
         setupListeners()
         observeState()
         maybeShowCrashReport()

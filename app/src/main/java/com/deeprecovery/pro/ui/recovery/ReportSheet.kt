@@ -1,6 +1,12 @@
 package com.deeprecovery.pro.ui.recovery
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
+import android.widget.Toast
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +22,19 @@ class ReportSheet : BottomSheetDialogFragment() {
 
     private var _binding: SheetReportBinding? = null
     private val binding get() = _binding!!
+
+    private val untrashLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            Toast.makeText(
+                requireContext(),
+                R.string.report_untrash_done,
+                Toast.LENGTH_LONG
+            ).show()
+            binding.untrashButton.visibility = View.GONE
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -62,7 +81,58 @@ class ReportSheet : BottomSheetDialogFragment() {
             }
         }
 
+        setupUntrash(args.getStringArray(ARG_UNTRASH)?.filterNotNull().orEmpty())
+
+        binding.openAlbumButton.setOnClickListener { openRecoveredAlbum() }
         binding.reportDoneButton.setOnClickListener { dismiss() }
+    }
+
+    /**
+     * عناصر سلة مهملات النظام تُستعاد بأمر إلغاء الحذف لا بنسخ البايتات:
+     * لا يملك التطبيق صلاحية قراءتها أصلاً. ينفّذ النظام الأمر بموافقة
+     * المستخدم فتعود الملفات إلى مكانها الأصلي وتظهر في المعرض فوراً.
+     */
+    private fun setupUntrash(uris: List<String>) {
+        if (uris.isEmpty() || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+            return
+        }
+
+        addRow(R.string.report_untrash_reason, uris.size.toString())
+        binding.untrashButton.visibility = View.VISIBLE
+        binding.untrashButton.setOnClickListener {
+            val parsed = uris.mapNotNull { runCatching { Uri.parse(it) }.getOrNull() }
+            runCatching {
+                val request = MediaStore.createTrashRequest(
+                    requireContext().contentResolver,
+                    parsed,
+                    false
+                )
+                untrashLauncher.launch(
+                    IntentSenderRequest.Builder(request.intentSender).build()
+                )
+            }
+        }
+    }
+
+    /** يفتح المعرض على ألبوم الملفات المستردة. */
+    private fun openRecoveredAlbum() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                "image/*"
+            )
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching { startActivity(intent) }.onFailure {
+            Toast.makeText(
+                requireContext(),
+                getString(
+                    R.string.report_open_album_failed,
+                    requireArguments().getString(ARG_DESTINATION).orEmpty()
+                ),
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun addRow(labelRes: Int, value: String) {
@@ -101,6 +171,7 @@ class ReportSheet : BottomSheetDialogFragment() {
         private const val ARG_BYTES = "bytes"
         private const val ARG_DESTINATION = "destination"
         private const val ARG_FAILURES = "failures"
+        private const val ARG_UNTRASH = "untrash"
 
         fun newInstance(state: RecoveryUiState) = ReportSheet().apply {
             arguments = Bundle().apply {
@@ -112,6 +183,7 @@ class ReportSheet : BottomSheetDialogFragment() {
                 putLong(ARG_BYTES, state.bytesWritten)
                 putString(ARG_DESTINATION, state.destination)
                 putStringArray(ARG_FAILURES, state.failures.toTypedArray())
+                putStringArray(ARG_UNTRASH, state.needsUntrash.toTypedArray())
             }
         }
     }
