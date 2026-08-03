@@ -200,6 +200,14 @@
                 android:text="@string/select_all" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/deleteForeverButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/delete_forever"
+                android:textColor="?attr/colorError" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/recoverButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

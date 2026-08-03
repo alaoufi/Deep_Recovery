@@ -131,16 +131,26 @@ class MediaStoreScanner(private val context: Context) {
     }
 
     /**
-     * مدخلات MediaStore التي فقدت ملفها على القرص — دليل على حذف حديث،
-     * وتفيد في توجيه الفحص العميق إلى المجلدات الصحيحة.
+     * يكتشف الألبومات المحذوفة.
+     *
+     * عند حذف ألبوم يختفي مجلده من نظام الملفات، لكن **سجلات MediaStore
+     * تبقى** فترة تشير إلى ملفات لم تعد موجودة. تجميع تلك السجلات بحسب
+     * مجلدها يعطينا قائمة الألبومات المحذوفة بأسمائها وعدد ملفاتها
+     * المفقودة — وهذا ما يمكّن المستخدم من اختيار ألبوم بعينه.
+     *
+     * ملاحظة مهمة: هذه سجلات ميتاداتا لا بايتات. وجود الألبوم هنا يعني
+     * أننا نعرف أنه كان موجوداً وأين كان، لا أن محتواه ما زال قابلاً
+     * للقراءة من مساره.
      */
-    fun findOrphanEntries(includeImages: Boolean, includeVideos: Boolean): List<String> {
-        val folders = mutableSetOf<String>()
+    fun findDeletedAlbums(includeImages: Boolean, includeVideos: Boolean): List<DeletedAlbum> {
+        val missingByFolder = mutableMapOf<String, Int>()
+
         val collections = buildList {
             if (includeImages) add(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
             if (includeVideos) add(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
         }
         val projection = arrayOf(MediaStore.MediaColumns.DATA)
+
         collections.forEach { uri ->
             runCatching {
                 context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
@@ -149,13 +159,40 @@ class MediaStoreScanner(private val context: Context) {
                     while (cursor.moveToNext()) {
                         val path = cursor.getString(dataCol) ?: continue
                         val file = File(path)
-                        if (!file.exists()) {
-                            file.parent?.let { folders += it }
-                        }
+                        if (file.exists()) continue
+                        val parent = file.parent ?: continue
+                        missingByFolder[parent] = (missingByFolder[parent] ?: 0) + 1
                     }
                 }
             }
         }
-        return folders.toList()
+
+        return missingByFolder
+            .map { (path, count) ->
+                DeletedAlbum(
+                    path = path,
+                    name = path.substringAfterLast('/').ifEmpty { path },
+                    missingCount = count,
+                    existsOnDisk = File(path).isDirectory
+                )
+            }
+            .sortedByDescending { it.missingCount }
     }
+}
+
+/**
+ * ألبوم فقد ملفاته.
+ *
+ * @param existsOnDisk هل ما زال المجلد نفسه موجوداً؟ إن كان محذوفاً
+ *   فبقايا محتواه تُطلب من المجلد الأب وذاكرة المصغّرات وسلة المهملات.
+ */
+data class DeletedAlbum(
+    val path: String,
+    val name: String,
+    val missingCount: Int,
+    val existsOnDisk: Boolean
+) {
+    /** المجلد الذي يُوجَّه إليه الفحص للبحث عن بقايا هذا الألبوم. */
+    val scanTarget: String
+        get() = if (existsOnDisk) path else path.substringBeforeLast('/', path)
 }

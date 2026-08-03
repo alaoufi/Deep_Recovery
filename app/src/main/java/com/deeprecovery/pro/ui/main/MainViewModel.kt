@@ -31,7 +31,9 @@ data class MainUiState(
     val resumableSessionId: Long = -1L,
     val lastSessionId: Long = -1L,
     val freeSpaceBytes: Long = 0,
-    val hasAllFilesAccess: Boolean = true
+    val hasAllFilesAccess: Boolean = true,
+    /** ألبومات فقدت ملفاتها بحسب سجلات MediaStore. */
+    val deletedAlbums: List<com.deeprecovery.pro.engine.scanner.DeletedAlbum> = emptyList()
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -72,10 +74,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 hasAllFilesAccess = StorageUtils.hasAllFilesAccess()
             )
             checkRoot()
+            loadDeletedAlbums()
         }
     }
 
     fun refresh() = load()
+
+    /**
+     * يكتشف الألبومات المحذوفة من سجلات MediaStore التي فقدت ملفاتها.
+     * استعلام ثقيل نسبياً، لذا يُنفَّذ على خيط الإدخال/الإخراج.
+     */
+    private fun loadDeletedAlbums() {
+        viewModelScope.launch {
+            val albums = withContext(Dispatchers.IO) {
+                runCatching {
+                    com.deeprecovery.pro.engine.scanner.MediaStoreScanner(getApplication())
+                        .findDeletedAlbums(
+                            _state.value.includeImages,
+                            _state.value.includeVideos
+                        )
+                }.getOrDefault(emptyList())
+            }
+            _state.value = _state.value.copy(deletedAlbums = albums)
+        }
+    }
 
     fun checkRoot(force: Boolean = false) {
         viewModelScope.launch {

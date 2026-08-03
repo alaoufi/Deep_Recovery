@@ -186,6 +186,12 @@ interface RecoveredFileDao {
     )
     suspend fun markRecovered(id: Long, uri: String, time: Long)
 
+    @Query("DELETE FROM recovered_files WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
+    @Query("SELECT * FROM recovered_files WHERE sessionId = :sessionId")
+    suspend fun observeBySessionOnce(sessionId: Long): List<RecoveredFileEntity>
+
     @Query("DELETE FROM recovered_files WHERE sessionId = :sessionId")
     suspend fun deleteForSession(sessionId: Long)
 

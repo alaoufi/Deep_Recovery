@@ -227,6 +227,45 @@ class MainFragment : Fragment() {
 
         renderLocations(state)
         renderCustomFolders()
+        renderDeletedAlbums(state)
+    }
+
+    /**
+     * الألبومات المحذوفة: اختيار أحدها يقصر الفحص على مكانه.
+     *
+     * إن كان مجلد الألبوم نفسه محذوفاً يُوجَّه الفحص إلى المجلد الأب،
+     * لأن بقايا محتواه تُطلب من هناك ومن ذاكرة المصغّرات وسلة المهملات.
+     */
+    private fun renderDeletedAlbums(state: MainUiState) {
+        val group = binding.deletedAlbumsGroup
+        group.removeAllViews()
+
+        state.deletedAlbums.take(20).forEach { album ->
+            val chip = com.google.android.material.chip.Chip(requireContext()).apply {
+                text = getString(R.string.deleted_album_chip, album.name, album.missingCount)
+                isCheckable = true
+                isChecked = album.scanTarget in prefs.customFolders
+                setOnClickListener {
+                    if (isChecked) {
+                        prefs.addCustomFolder(album.scanTarget)
+                        if (!album.existsOnDisk) {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.deleted_album_gone,
+                                Snackbar.LENGTH_LONG
+                            ).show()
+                        }
+                    } else {
+                        prefs.removeCustomFolder(album.scanTarget)
+                    }
+                    renderCustomFolders()
+                }
+            }
+            group.addView(chip)
+        }
+
+        binding.deletedAlbumsEmpty.visibility =
+            if (state.deletedAlbums.isEmpty()) View.VISIBLE else View.GONE
     }
 
     /** يعرض المجلدات المختارة كرقائق قابلة للإزالة. */

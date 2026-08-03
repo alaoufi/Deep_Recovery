@@ -151,6 +151,22 @@
     <string name="recovery_skip_duplicates">تخطي الملفات المكررة</string>
     <string name="recovery_nothing_selected">لم يتم تحديد أي ملف</string>
 
+    <!-- الحذف النهائي -->
+    <string name="delete_forever">حذف نهائي</string>
+    <string name="delete_forever_title">حذف نهائي لا يمكن التراجع عنه</string>
+    <string name="delete_forever_body">سيتم الكتابة فوق محتوى %1$d ملف ببيانات عشوائية ثم حذفها، فلا يمكن استعادتها بعد ذلك — لا بهذا التطبيق ولا بغيره.\n\nملاحظة: ذاكرة الفلاش تعيد توزيع الكتابة داخلياً، فقد تبقى نسخة فيزيائية في كتلة لم يعد النظام يشير إليها. هذا يمنع الاستعادة البرمجية المعتادة ولا يعادل مسحاً فيزيائياً مضموناً.</string>
+    <string name="delete_forever_confirm">نعم، احذف نهائياً</string>
+    <string name="delete_forever_done">تم مسح %1$d ملف نهائياً</string>
+    <string name="delete_forever_partial">تم مسح %1$d، وفشل %2$d</string>
+    <string name="delete_forever_consent">يحتاج %1$d ملف موافقة النظام على الحذف</string>
+
+    <!-- الألبومات المحذوفة -->
+    <string name="deleted_albums_title">الألبومات المحذوفة</string>
+    <string name="deleted_albums_desc">ألبومات فقدت ملفاتها — اختر ألبوماً ليقتصر الفحص على مكانه وعلى ذاكرة المصغّرات وسلة المهملات.</string>
+    <string name="deleted_albums_none">لم يُعثر على ألبومات محذوفة في سجلات النظام</string>
+    <string name="deleted_album_chip">%1$s (%2$d)</string>
+    <string name="deleted_album_gone">مجلد الألبوم نفسه محذوف — سيُبحث عن بقاياه في المجلد الأب وذاكرة المصغّرات</string>
+
     <!-- تقرير الاستعادة -->
     <string name="report_title">تقرير الاستعادة</string>
     <string name="report_success_rate">نسبة النجاح</string>

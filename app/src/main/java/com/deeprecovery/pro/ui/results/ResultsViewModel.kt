@@ -135,6 +135,29 @@ class ResultsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * حذف نهائي للملفات المحددة.
+     *
+     * عملية لا رجعة فيها، لذلك تُستدعى فقط بعد تأكيد صريح من المستخدم.
+     */
+    fun deleteForever(
+        ids: List<Long>,
+        onDone: (com.deeprecovery.pro.engine.DeleteReport) -> Unit
+    ) {
+        viewModelScope.launch {
+            val engine = com.deeprecovery.pro.engine.SecureDeleteEngine(getApplication())
+            val report = engine.deleteForever(ids)
+            clearSelection()
+            onDone(report)
+        }
+    }
+
+    fun forgetRecords(ids: List<Long>) {
+        viewModelScope.launch {
+            com.deeprecovery.pro.engine.SecureDeleteEngine(getApplication()).forgetRecords(ids)
+        }
+    }
+
     fun deleteSession(id: Long, onDone: () -> Unit) {
         viewModelScope.launch {
             repository.deleteSession(id)

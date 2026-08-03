@@ -273,6 +273,11 @@ class DeepScanEngine(private val context: Context) {
         }
     }
 
+    private fun storageVolumes(): List<File> = buildList {
+        add(StorageUtils.internalRoot())
+        StorageUtils.sdCardRoot(context)?.let { add(it) }
+    }
+
     private suspend fun buildSources(request: ScanRequest, sessionId: Long): List<ScanSource> {
         val sources = mutableListOf<ScanSource>()
         val targets = StorageUtils.resolveTargets(context)
@@ -290,14 +295,24 @@ class DeepScanEngine(private val context: Context) {
                 dirs = custom,
                 location = ScanLocation.INTERNAL_STORAGE
             )
+
+            // ألبوم محذوف لم تعد ملفاته في مكانها: بقاياه تعيش في ذاكرة
+            // المصغّرات وسلة المهملات، فنضمّها وإلا لم يجد الفحص شيئاً
+            if (request.depth != ScanDepth.DEEP) {
+                val hotspots = StorageUtils.recoveryHotspots(storageVolumes())
+                if (hotspots.isNotEmpty()) {
+                    sources += ScanSource.Directory(
+                        key = "dir:hotspots",
+                        label = context.getString(R.string.stage_deleted_only),
+                        dirs = hotspots,
+                        location = ScanLocation.INTERNAL_STORAGE
+                    )
+                }
+            }
         } else if (request.depth == ScanDepth.QUICK) {
             // الفحص السريع لا يمرّ على التخزين كاملاً: يقتصر على الأماكن
             // التي قد تحتوي بقايا محذوفة فعلاً
-            val volumes = buildList {
-                add(StorageUtils.internalRoot())
-                StorageUtils.sdCardRoot(context)?.let { add(it) }
-            }
-            val hotspots = StorageUtils.recoveryHotspots(volumes)
+            val hotspots = StorageUtils.recoveryHotspots(storageVolumes())
             if (hotspots.isNotEmpty()) {
                 sources += ScanSource.Directory(
                     key = "dir:hotspots",

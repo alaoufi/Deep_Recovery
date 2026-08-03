@@ -37,6 +37,18 @@ class ResultsFragment : Fragment() {
     private val viewModel: ResultsViewModel by viewModels()
 
     private lateinit var fileAdapter: RecoveredFileAdapter
+
+    /** نتيجة نافذة الحذف التي يعرضها النظام. */
+    private val systemDelete = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            viewModel.forgetRecords(pendingConsentIds)
+        }
+        pendingConsentIds = emptyList()
+    }
+
+    private var pendingConsentIds: List<Long> = emptyList()
     private lateinit var folderAdapter: FolderAdapter
 
     override fun onCreateView(
@@ -124,6 +136,62 @@ class ResultsFragment : Fragment() {
         }
 
         breadcrumbText.setOnClickListener { viewModel.openFolder(null) }
+
+        deleteForeverButton.setOnClickListener {
+            val ids = viewModel.selectedIds.value.toList()
+            if (ids.isEmpty()) {
+                Snackbar.make(root, R.string.recovery_nothing_selected, Snackbar.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            confirmDeleteForever(ids)
+        }
+    }
+
+    /** الحذف النهائي لا رجعة فيه، فلا يبدأ إلا بتأكيد صريح. */
+    private fun confirmDeleteForever(ids: List<Long>) {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.delete_forever_title)
+            .setMessage(getString(R.string.delete_forever_body, ids.size))
+            .setIcon(R.drawable.ic_info)
+            .setNegativeButton(R.string.action_cancel, null)
+            .setPositiveButton(R.string.delete_forever_confirm) { _, _ -> runDeleteForever(ids) }
+            .show()
+    }
+
+    private fun runDeleteForever(ids: List<Long>) {
+        viewModel.deleteForever(ids) { report ->
+            val message = when {
+                report.needsConsent.isNotEmpty() ->
+                    getString(R.string.delete_forever_consent, report.needsConsent.size)
+
+                report.failed > 0 ->
+                    getString(R.string.delete_forever_partial, report.wiped, report.failed)
+
+                else -> getString(R.string.delete_forever_done, report.wiped)
+            }
+            Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
+            if (report.needsConsent.isNotEmpty()) {
+                pendingConsentIds = ids
+                requestSystemDelete(report.needsConsent)
+            }
+        }
+    }
+
+    /**
+     * ملفات لا يملكها التطبيق تحتاج موافقة المستخدم عبر نافذة النظام
+     * على أندرويد 11+.
+     */
+    private fun requestSystemDelete(uris: List<android.net.Uri>) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
+        runCatching {
+            val request = android.provider.MediaStore.createDeleteRequest(
+                requireContext().contentResolver,
+                uris
+            )
+            systemDelete.launch(
+                androidx.activity.result.IntentSenderRequest.Builder(request.intentSender).build()
+            )
+        }
     }
 
     private fun recoverWholeFolder(folderPath: String) {
