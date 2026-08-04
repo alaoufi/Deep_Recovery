@@ -609,7 +609,16 @@ class DeepScanEngine(private val context: Context) {
         }
 
         val hash = discovered.path?.let { com.deeprecovery.pro.util.HashUtils.contentHash(File(it)) }
-        val duplicateOf = if (detectDuplicates && !hash.isNullOrEmpty()) seenHashes[hash] else null
+
+        // الملف نفسه يُكتشف مرة عبر MediaStore ومرة عبر المجلدات. سجل
+        // MediaStore بلا مسار فلا بصمة محتوى له، فكان يفلت من كشف التكرار
+        // ويظهر العنصر مرتين في النتائج. مفتاح الاسم+الحجم يربط النسختين.
+        val weakKey = "w:${discovered.displayName.lowercase()}|${discovered.sizeBytes}"
+        val duplicateOf = if (detectDuplicates) {
+            hash?.takeIf { it.isNotEmpty() }?.let { seenHashes[it] } ?: seenHashes[weakKey]
+        } else {
+            null
+        }
 
         val entity = RecoveredFileEntity(
             sessionId = sessionId,
@@ -639,7 +648,11 @@ class DeepScanEngine(private val context: Context) {
             duplicateOfId = duplicateOf
         )
         val id = fileDao.insert(entity)
-        if (!hash.isNullOrEmpty() && duplicateOf == null) seenHashes[hash] = id
+        if (duplicateOf == null) {
+            // نسجّل المفتاحين معاً: النسخة القادمة قد تحمل أحدهما فقط
+            if (!hash.isNullOrEmpty()) seenHashes[hash] = id
+            seenHashes[weakKey] = id
+        }
         countFound(entity.mediaType, duplicateOf != null, entity.folderPath)
     }
 

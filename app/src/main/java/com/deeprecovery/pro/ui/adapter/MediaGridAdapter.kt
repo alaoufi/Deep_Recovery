@@ -84,13 +84,27 @@ class MediaGridAdapter(
             val source: Any? = item.recoveredUri?.let(Uri::parse)
                 ?: item.contentUri?.let(Uri::parse)
                 ?: item.stagedPath?.let(::File)
-            Glide.with(gridThumbnail)
-                .load(source)
-                .diskCacheStrategy(DiskCacheStrategy.NONE)
-                .placeholder(if (isVideo) R.drawable.ic_video else R.drawable.ic_image)
-                .error(R.drawable.ic_broken_image)
-                .centerCrop()
-                .into(gridThumbnail)
+
+            // فحص الفحص نفسه أثبت أن هذه البقايا لا تُفكّ (الأبعاد صفر)،
+            // فطلب مصغّرة منها يفشل حتماً وينتهي بأيقونة «ملف تالف» تملأ
+            // الشبكة وتوحي بخلل في التطبيق. نعرض حالتها الحقيقية بدلها.
+            val previewable = item.widthPx > 0 && item.heightPx > 0
+            gridNoPreview.visibility = if (previewable) View.GONE else View.VISIBLE
+
+            if (previewable) {
+                Glide.with(gridThumbnail)
+                    .load(source)
+                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+                    .placeholder(if (isVideo) R.drawable.ic_video else R.drawable.ic_image)
+                    .error(R.drawable.ic_broken_image)
+                    .centerCrop()
+                    .into(gridThumbnail)
+            } else {
+                Glide.with(gridThumbnail).clear(gridThumbnail)
+                gridThumbnail.setImageResource(
+                    if (isVideo) R.drawable.ic_video else R.drawable.ic_image
+                )
+            }
 
             root.setOnClickListener { onClick(item) }
             root.setOnLongClickListener {

@@ -5,8 +5,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TableRow
-import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -36,6 +34,7 @@ class PreviewFragment : Fragment() {
     private val viewModel: PreviewViewModel by viewModels()
     private var player: ExoPlayer? = null
     private var currentFile: RecoveredFileEntity? = null
+    private var playingHolder: PreviewPagerAdapter.PageHolder? = null
     private lateinit var pagerAdapter: PreviewPagerAdapter
 
     override fun onCreateView(
@@ -82,6 +81,10 @@ class PreviewFragment : Fragment() {
             }
         }
 
+        binding.openExternallyButton.setOnClickListener {
+            currentFile?.let(::openExternally)
+        }
+
         binding.recoverThisButton.setOnClickListener {
             val file = currentFile ?: return@setOnClickListener
             RecoverySheet.forFiles(file.sessionId, listOf(file.id))
@@ -105,58 +108,128 @@ class PreviewFragment : Fragment() {
             ContextCompat.getColor(requireContext(), qualityColor(file.quality))
         )
 
+        // الفيديو قد يفشل داخلياً لأسباب ترميز، فالمخرج الخارجي متاح دائماً
+        openExternallyButton.visibility =
+            if (file.mediaType == com.deeprecovery.pro.data.model.MediaType.VIDEO) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+
         buildInfoTable(file)
     }
 
     /** يشغّل الفيديو داخل صفحته الحالية فقط. */
     private fun playVideo(file: RecoveredFileEntity, holder: PreviewPagerAdapter.PageHolder) {
-        val uri = file.recoveredUri?.let(Uri::parse)
-            ?: file.contentUri?.let(Uri::parse)
-            ?: file.stagedPath?.let(::File)?.takeIf { it.exists() }?.let(Uri::fromFile)
-            ?: return
+        val uri = playableUri(file)
+        if (uri == null) {
+            showPlaybackFailure(holder, getString(R.string.preview_no_source))
+            return
+        }
 
         releasePlayer()
         val exoPlayer = ExoPlayer.Builder(requireContext()).build()
         player = exoPlayer
+        playingHolder = holder
 
         holder.binding.pageImage.visibility = View.GONE
         holder.binding.pagePlayBadge.visibility = View.GONE
         holder.binding.pagePlayer.visibility = View.VISIBLE
         holder.binding.pagePlayer.player = exoPlayer
 
+        // بلا هذا المستمع يفشل التشغيل إلى شاشة سوداء صامتة: المستخدم يرى
+        // «الفيديو لا يعمل» بلا أي سبب، ونحن نفقد الخطأ تماماً.
+        exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                showPlaybackFailure(holder, error.errorCodeName)
+            }
+        })
+
         exoPlayer.setMediaItem(MediaItem.fromUri(uri))
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
     }
 
+    private fun playableUri(file: RecoveredFileEntity): Uri? =
+        file.recoveredUri?.let(Uri::parse)
+            ?: file.contentUri?.let(Uri::parse)
+            ?: file.stagedPath?.let(::File)?.takeIf { it.exists() }?.let(Uri::fromFile)
+
+    /**
+     * يعيد الصورة المصغّرة ويشرح سبب الفشل بدل ترك شاشة سوداء.
+     *
+     * بقايا الملفات المستخرجة كثيراً ما تحمل ترميزاً لا يدعمه المشغّل
+     * الداخلي بينما يفتحها مشغّل النظام، لذلك نعرض المخرج الخارجي هنا.
+     */
+    private fun showPlaybackFailure(holder: PreviewPagerAdapter.PageHolder, reason: String) {
+        holder.binding.pagePlayer.visibility = View.GONE
+        holder.binding.pageImage.visibility = View.VISIBLE
+        holder.binding.pagePlayBadge.visibility = View.VISIBLE
+        releasePlayer()
+        _binding?.let { bound ->
+            bound.openExternallyButton.visibility = View.VISIBLE
+            com.google.android.material.snackbar.Snackbar
+                .make(bound.root, getString(R.string.preview_play_failed, reason), 6000)
+                .show()
+        }
+    }
+
+    /** يسلّم الملف لمشغّل النظام — يدعم ترميزات لا يدعمها المشغّل الداخلي. */
+    private fun openExternally(file: RecoveredFileEntity) {
+        val uri = externalViewUri(file) ?: return
+        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, file.mimeType.ifBlank { "video/*" })
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val started = runCatching { startActivity(intent); true }.getOrDefault(false)
+        if (!started) {
+            com.google.android.material.snackbar.Snackbar
+                .make(binding.root, R.string.preview_no_external_app, 4000)
+                .show()
+        }
+    }
+
+    /**
+     * `file://` يرفضه النظام في النوايا الخارجية منذ أندرويد ٧،
+     * فنمرّ عبر FileProvider حين يكون المصدر ملفاً على القرص.
+     */
+    private fun externalViewUri(file: RecoveredFileEntity): Uri? {
+        file.recoveredUri?.let { return Uri.parse(it) }
+        file.contentUri?.let { return Uri.parse(it) }
+        val onDisk = file.stagedPath?.let(::File)?.takeIf { it.exists() } ?: return null
+        return runCatching {
+            androidx.core.content.FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.fileprovider",
+                onDisk
+            )
+        }.getOrNull()
+    }
+
     private fun releasePlayer() {
         player?.release()
         player = null
+        // الصفحة المغادَرة كانت تبقى على مشغّل فارغ أسود بلا صورة
+        playingHolder?.binding?.let { page ->
+            page.pagePlayer.player = null
+            page.pagePlayer.visibility = View.GONE
+            page.pageImage.visibility = View.VISIBLE
+        }
+        playingHolder = null
     }
 
     private fun buildInfoTable(file: RecoveredFileEntity) {
         val table = binding.infoTable
         table.removeAllViews()
+        val inflater = LayoutInflater.from(requireContext())
 
         fun row(labelRes: Int, value: String) {
             if (value.isBlank()) return
-            val tableRow = TableRow(requireContext())
-            tableRow.addView(TextView(requireContext()).apply {
-                text = getString(labelRes)
-                setPadding(0, 6, 0, 6)
-                setTextAppearance(
-                    com.google.android.material.R.style.TextAppearance_Material3_BodySmall
-                )
-            })
-            tableRow.addView(TextView(requireContext()).apply {
-                text = value
-                setPadding(0, 6, 0, 6)
-                textAlignment = View.TEXT_ALIGNMENT_VIEW_END
-                setTextAppearance(
-                    com.google.android.material.R.style.TextAppearance_Material3_BodyMedium
-                )
-            })
-            table.addView(tableRow)
+            val rowBinding = com.deeprecovery.pro.databinding.ItemInfoRowBinding
+                .inflate(inflater, table, false)
+            rowBinding.infoLabel.text = getString(labelRes)
+            rowBinding.infoValue.text = value
+            table.addView(rowBinding.root)
         }
 
         row(R.string.info_size, FormatUtils.formatSize(requireContext(), file.sizeBytes))

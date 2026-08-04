@@ -71,6 +71,22 @@
             app:layout_constraintTop_toTopOf="parent"
             app:tint="#FFFFFF" />
 
+        <TextView
+            android:id="@+id/gridNoPreview"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="5dp"
+            android:background="@drawable/bg_duration_badge"
+            android:paddingHorizontal="5dp"
+            android:paddingVertical="1dp"
+            android:text="@string/grid_no_preview"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="@id/gridThumbnail"
+            tools:visibility="visible" />
+
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/gridCheck"
             android:layout_width="wrap_content"

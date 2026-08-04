@@ -256,6 +256,11 @@
     <string name="crash_details_title">تفاصيل التوقف</string>
     <string name="menu_crash_log">سجل الأعطال</string>
     <string name="menu_diagnostics">تشخيص الجهاز</string>
+    <string name="preview_open_external">فتح بمشغّل النظام</string>
+    <string name="preview_play_failed">تعذّر التشغيل داخل التطبيق (%1$s) — جرّب «فتح بمشغّل النظام».</string>
+    <string name="preview_no_source">لا توجد بيانات قابلة للقراءة لهذا العنصر.</string>
+    <string name="preview_no_external_app">لا يوجد تطبيق على الجهاز يفتح هذا النوع.</string>
+    <string name="grid_no_preview">بلا معاينة</string>
     <string name="untrash_all">إرجاع %1$d عنصراً من سلة المهملات</string>
     <string name="untrash_done">تمت الاستعادة — تجدها في المعرض في مكانها الأصلي.</string>
     <string name="untrash_cancelled">أُلغيت الاستعادة.</string>

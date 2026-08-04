@@ -70,12 +70,24 @@
                     tools:background="@color/quality_excellent"
                     tools:text="Excellent Recovery — 92%" />
 
-                <TableLayout
+                <LinearLayout
                     android:id="@+id/infoTable"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:stretchColumns="1" />
+                    android:orientation="vertical" />
+
+                <!-- مخرج حقيقي حين يعجز المشغّل الداخلي عن ملف بترميز غريب -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/openExternallyButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/preview_open_external"
+                    android:visibility="gone"
+                    app:icon="@drawable/ic_video"
+                    tools:visibility="visible" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/recoverThisButton"

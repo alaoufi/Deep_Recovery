@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    صف معلومة واحد.
+
+    كان الجدول يُبنى برمجياً داخل TableLayout مع stretchColumns و
+    setTextAppearance؛ فكانت القيم تُرسم خارج المنطقة المرئية وتظهر
+    التسميات وحدها بلا قيم. تخطيط صريح بأوزان وألوان مُعلنة يزيل هذا
+    الاحتمال أصلاً.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:baselineAligned="false"
+    android:orientation="horizontal"
+    android:paddingVertical="5dp">
+
+    <TextView
+        android:id="@+id/infoLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.4"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        tools:text="الحجم" />
+
+    <TextView
+        android:id="@+id/infoValue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="0.6"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:textColor="?attr/colorOnSurface"
+        android:textDirection="locale"
+        tools:text="12.4 ميغابايت" />
+
+</LinearLayout>
