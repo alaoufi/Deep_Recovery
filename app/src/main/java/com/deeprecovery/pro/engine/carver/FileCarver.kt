@@ -181,6 +181,13 @@ class FileCarver(
             return null
         }
 
+        // صوت داخل حاوية MP4 ليس مقطع فيديو: يُعرض بمدة صحيحة وبلا صورة
+        // ثم يخرج صوتاً بلا مشهد عند التشغيل
+        if (validation.audioOnly) {
+            target.delete()
+            return null
+        }
+
         val confidence = MediaValidator.combineConfidence(
             extent.structureConfidence,
             extent.truncated,

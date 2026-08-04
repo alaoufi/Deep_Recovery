@@ -17,7 +17,15 @@ object MediaValidator {
         val decodable: Boolean,
         val width: Int = 0,
         val height: Int = 0,
-        val durationMs: Long = 0L
+        val durationMs: Long = 0L,
+        /**
+         * قُرئت الميتاداتا بنجاح لكن الملف لا يحوي مسار فيديو أصلاً.
+         *
+         * ملفات الصوت في WhatsApp وغيرها تعيش داخل حاوية MP4 نفسها،
+         * فتطابق توقيع `ftyp` وتُصنَّف فيديو خطأً: تظهر بمدة صحيحة وبلا
+         * أبعاد ولا مصغّرة، وعند تشغيلها يخرج صوت بلا صورة.
+         */
+        val audioOnly: Boolean = false
     )
 
     /** أقصى حجم نمرّره لفاكّات الترميز الأصلية. */
@@ -74,7 +82,21 @@ object MediaValidator {
             val duration = retriever
                 .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull() ?: 0L
-            Validation(width > 0 && height > 0, width, height, duration)
+            val hasVideo = retriever
+                .extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes"
+
+            // الميتاداتا سليمة (مدة موجودة) لكن بلا مسار فيديو: ملف صوت
+            // في حاوية MP4، لا بقايا فيديو مقطوعة. التمييز مهم: البقايا
+            // المقطوعة تفشل قراءتها كلياً فتكون المدة صفراً.
+            val audioOnly = duration > 0 && !hasVideo && (width <= 0 || height <= 0)
+
+            Validation(
+                decodable = width > 0 && height > 0,
+                width = width,
+                height = height,
+                durationMs = duration,
+                audioOnly = audioOnly
+            )
         } catch (e: Throwable) {
             Validation(decodable = false)
         } finally {

@@ -169,8 +169,17 @@ class ScanFragment : Fragment() {
             if (paused) R.drawable.ic_play else R.drawable.ic_pause
         )
 
+        // النتائج تُحفظ أولاً بأول وشاشة النتائج تراقب قاعدة البيانات،
+        // فلا داعي لانتظار نهاية الفحص لرؤية ما يمكن استعادته.
+        if (progress.filesFound > 0 && !progress.status.isTerminal) {
+            viewResultsButton.visibility = View.VISIBLE
+            viewResultsButton.text =
+                getString(R.string.scan_view_results_live, progress.filesFound)
+        }
+
         if (progress.status.isTerminal) {
             pauseResumeButton.isEnabled = false
+            viewResultsButton.setText(R.string.scan_view_results)
             stageText.setText(
                 when (progress.status) {
                     ScanStatus.COMPLETED -> R.string.scan_completed

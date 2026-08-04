@@ -44,6 +44,9 @@ class FileSystemScanner {
         private const val MAX_DEPTH = 12
         private const val APP_DIR_MARKER = "/Android/data/com.deeprecovery.pro"
 
+        /** أدنى أولوية موقع نقبل عندها ملفاً بلا امتداد — انظر [CarvePriority]. */
+        private const val RECOVERY_LOCATION_PRIORITY = 30
+
         /**
          * امتدادات مكافئة لكل توقيع.
          *
@@ -214,6 +217,17 @@ class FileSystemScanner {
         val knownExtension = EXTENSION_ALIASES.values.any { actualExtension in it }
         if (!looksDeleted && knownExtension) return null
 
+        // ملف بلا امتداد ليس دليل حذف بحد ذاته: ذواكر التطبيقات مليئة
+        // بملفات مسمّاة ببصمة بلا امتداد وهي حيّة تماماً — مثل
+        // `WhatsApp/.Shared`. كانت تُبتلع كلها كـ«مرشّحات استعادة» فتُغرق
+        // النتائج. والأهم أن الرفض يجب أن يسبق فتح الملف: عشرات الآلاف
+        // من عمليات الفتح والقراءة هي سبب البطء المباشر.
+        if (!looksDeleted && actualExtension.isEmpty() &&
+            CarvePriority.of(file.absolutePath) < RECOVERY_LOCATION_PRIORITY
+        ) {
+            return null
+        }
+
         val read = runCatching {
             file.inputStream().use { it.read(header, 0, header.size) }
         }.getOrDefault(-1)
@@ -226,6 +240,10 @@ class FileSystemScanner {
         if (!looksDeleted && !extensionMismatch) return null
 
         val validation = MediaValidator.validate(file, signature.mediaType)
+
+        // صوت داخل حاوية MP4 ليس فيديو: يظهر بمدة صحيحة وبلا صورة،
+        // وعند تشغيله يخرج صوت فقط. لا نعرضه كمقطع قابل للاستعادة.
+        if (validation.audioOnly) return null
         val confidence = when {
             validation.decodable && looksDeleted -> 95
             validation.decodable -> 85
