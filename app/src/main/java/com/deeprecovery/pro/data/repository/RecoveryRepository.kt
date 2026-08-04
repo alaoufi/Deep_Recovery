@@ -64,6 +64,10 @@ class RecoveryRepository(context: Context) {
     suspend fun getFolderContents(sessionId: Long, folderPath: String): List<RecoveredFileEntity> =
         fileDao.getFolderTreeContents(sessionId, folderPath)
 
+    /** عناصر سلة مهملات النظام — تُستعاد بأمر إلغاء الحذف لا بالنسخ. */
+    suspend fun trashedUris(sessionId: Long): List<String> =
+        fileDao.trashedUris(sessionId)
+
     fun observeReports(sessionId: Long): Flow<List<RecoveryReportEntity>> =
         reportDao.observeForSession(sessionId)
 

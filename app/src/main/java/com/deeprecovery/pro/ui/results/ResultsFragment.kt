@@ -49,6 +49,18 @@ class ResultsFragment : Fragment() {
         pendingConsentIds = emptyList()
     }
 
+    /** نتيجة أمر إلغاء الحذف الذي يعرضه النظام. */
+    private val systemUntrash = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        val message = if (result.resultCode == android.app.Activity.RESULT_OK) {
+            R.string.untrash_done
+        } else {
+            R.string.untrash_cancelled
+        }
+        _binding?.let { Snackbar.make(it.root, message, Snackbar.LENGTH_LONG).show() }
+    }
+
     private var pendingConsentIds: List<Long> = emptyList()
     private lateinit var folderAdapter: FolderAdapter
 
@@ -143,6 +155,17 @@ class ResultsFragment : Fragment() {
 
         breadcrumbText.setOnClickListener { viewModel.openFolder(null) }
 
+        emptyDiagnosticsButton.setOnClickListener {
+            com.deeprecovery.pro.ui.common.InfoDialogs.showDiagnostics(requireContext())
+        }
+
+        untrashAllButton.setOnClickListener {
+            viewModel.loadTrashedUris { uris ->
+                if (uris.isEmpty()) return@loadTrashedUris
+                requestUntrash(uris)
+            }
+        }
+
         deleteForeverButton.setOnClickListener {
             val ids = viewModel.selectedIds.value.toList()
             if (ids.isEmpty()) {
@@ -200,6 +223,29 @@ class ResultsFragment : Fragment() {
         }
     }
 
+    /**
+     * أمر إلغاء الحذف الذي ينفّذه النظام.
+     *
+     * عناصر سلة المهملات لا يملك التطبيق فتح بايتاتها، فلا تُنسخ ولا
+     * تُعرض ولا تُشغَّل. هذا الأمر يعيدها إلى مكانها الأصلي فتظهر في
+     * المعرض فوراً — وهو أضمن استعادة متاحة بلا Root.
+     */
+    private fun requestUntrash(uris: List<android.net.Uri>) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
+        runCatching {
+            val request = android.provider.MediaStore.createTrashRequest(
+                requireContext().contentResolver,
+                uris,
+                false
+            )
+            systemUntrash.launch(
+                androidx.activity.result.IntentSenderRequest.Builder(request.intentSender).build()
+            )
+        }.onFailure {
+            Snackbar.make(binding.root, R.string.untrash_failed, Snackbar.LENGTH_LONG).show()
+        }
+    }
+
     private fun recoverWholeFolder(folderPath: String) {
         RecoverySheet.forFolder(viewModel.sessionId.value, folderPath)
             .show(childFragmentManager, RecoverySheet.TAG)
@@ -218,6 +264,7 @@ class ResultsFragment : Fragment() {
                         if (viewModel.view.value != ResultsView.FOLDERS) {
                             updateEmptyState(files.isEmpty())
                         }
+                        updateUntrashButton(files.count { it.note == "trashed" })
                     }
                 }
 
@@ -282,6 +329,16 @@ class ResultsFragment : Fragment() {
         chipGrid.isChecked = view == ResultsView.GRID
         chipList.isChecked = view == ResultsView.FILES
         chipFolders.isChecked = view == ResultsView.FOLDERS
+    }
+
+    /** يظهر الزر فقط حين توجد عناصر يستطيع النظام إرجاعها فعلاً. */
+    private fun updateUntrashButton(trashedCount: Int) {
+        val supported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
+        binding.untrashAllButton.visibility =
+            if (supported && trashedCount > 0) View.VISIBLE else View.GONE
+        if (trashedCount > 0) {
+            binding.untrashAllButton.text = getString(R.string.untrash_all, trashedCount)
+        }
     }
 
     private fun updateEmptyState(empty: Boolean) {

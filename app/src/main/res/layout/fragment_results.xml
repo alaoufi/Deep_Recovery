@@ -126,6 +126,25 @@
         tools:text="DCIM/Camera"
         tools:visibility="visible" />
 
+    <!--
+        استعادة سلة مهملات النظام: أضمن مسار بلا Root، والعناصر هناك لا
+        يمكن نسخها أصلاً — يعيدها النظام بنفسه إلى مكانها الأصلي.
+    -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/untrashAllButton"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:visibility="gone"
+        app:icon="@drawable/ic_restore"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/breadcrumbText"
+        tools:text="استعادة 12 عنصراً من سلة المهملات"
+        tools:visibility="visible" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/resultsList"
         android:layout_width="0dp"
@@ -137,7 +156,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/breadcrumbText"
+        app:layout_constraintTop_toBottomOf="@id/untrashAllButton"
         tools:itemCount="6"
         tools:listitem="@layout/item_recovered_file" />
 
@@ -177,6 +196,16 @@
             android:text="@string/results_empty_hint"
             android:textAppearance="?attr/textAppearanceBodySmall"
             android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <!-- شاشة فارغة بلا تفسير تترك المستخدم يخمّن؛ التشخيص يعطي السبب -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/emptyDiagnosticsButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/menu_diagnostics"
+            app:icon="@drawable/ic_info" />
 
     </LinearLayout>
 

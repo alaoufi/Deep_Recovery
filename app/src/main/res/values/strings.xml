@@ -256,6 +256,10 @@
     <string name="crash_details_title">تفاصيل التوقف</string>
     <string name="menu_crash_log">سجل الأعطال</string>
     <string name="menu_diagnostics">تشخيص الجهاز</string>
+    <string name="untrash_all">إرجاع %1$d عنصراً من سلة المهملات</string>
+    <string name="untrash_done">تمت الاستعادة — تجدها في المعرض في مكانها الأصلي.</string>
+    <string name="untrash_cancelled">أُلغيت الاستعادة.</string>
+    <string name="untrash_failed">تعذّر طلب الاستعادة من النظام.</string>
     <string name="diagnostics_title">ما يستطيع التطبيق رؤيته</string>
     <string name="diagnostics_failed">تعذّر جمع بيانات التشخيص.</string>
     <string name="crash_log_empty">لا يوجد سجل أعطال</string>

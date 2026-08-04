@@ -20,6 +20,7 @@ import com.deeprecovery.pro.engine.carver.RawSource
 import com.deeprecovery.pro.engine.carver.SignatureRegistry
 import com.deeprecovery.pro.engine.root.BlockDeviceRawSource
 import com.deeprecovery.pro.engine.root.RootManager
+import com.deeprecovery.pro.util.AppPrefs
 import com.deeprecovery.pro.util.StorageUtils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
@@ -73,6 +74,14 @@ class DeepScanEngine(private val context: Context) {
         private const val PUBLISH_INTERVAL_MS = 250L
         private const val MAX_CARVE_CANDIDATES = 400
 
+        /**
+         * أدنى أولوية يُقبل معها ملف للنحت — انظر [CarvePriority].
+         * الدرجة 10 هي «ملف عادي»، وهي بالضبط ما نستبعده.
+         */
+        private const val MIN_CARVE_PRIORITY = 30
+        /** الفحص الكامل يقبل كل شيء لمن يطلبه صراحةً. */
+        private const val FULL_CARVE_PRIORITY = 0
+
         /** نتوقف عن الاستخراج قبل أن نخنق تخزين الجهاز. */
         private const val MIN_FREE_BYTES = 300L * 1024 * 1024
     }
@@ -119,6 +128,11 @@ class DeepScanEngine(private val context: Context) {
         startTime = System.currentTimeMillis()
         val session = prepareSession(request, sessionId)
         val id = session.id
+
+        // يُسجَّل فور إنشاء الجلسة لا بعد اكتمالها. كان يُكتب في نهاية
+        // العامل فقط، فإن أُلغي الفحص أو أوقفه النظام بقي «آخر النتائج»
+        // مشيراً إلى جلسة قديمة — وهذا سبب فتحه على شاشة فارغة.
+        AppPrefs(context).lastSessionId = id
 
         _progress.value = ScanProgress(
             sessionId = id,
@@ -410,7 +424,7 @@ class DeepScanEngine(private val context: Context) {
                 excludedDirNames = request.excludedDirNames,
                 onProgressFile = { file ->
                     checkPause()
-                    if (file.length() >= MIN_CARVE_TARGET) {
+                    if (isCarveCandidate(file, request.depth)) {
                         carveCandidates += file
                     }
                     bumpProcessed(file.length())
@@ -487,6 +501,25 @@ class DeepScanEngine(private val context: Context) {
             carveInto(sessionId, request, buildCarver(request), it, folder, folderLabel, startOffset, target?.id)
         }
         target?.let { targetDao.markCompleted(it.id) }
+    }
+
+    /**
+     * هل يستحق هذا الملف أن يُنحت؟
+     *
+     * صورة سليمة في `DCIM/Camera` ليست بيانات محذوفة؛ نحتها يعيد استخراج
+     * ملف موجود أصلاً ويكلّف قراءة الملف كاملاً. كان الشرط الوحيد هو
+     * الحجم، فدخلت عشرات الآلاف من الملفات العادية في قائمة النحت
+     * وصار الفحص يستغرق عشرات الدقائق بلا نتيجة مفيدة.
+     *
+     * نقتصر الآن على مصادر البقايا الحقيقية — ذاكرة المصغّرات، سلال
+     * المهملات، `LOST.DIR`، الملفات المخفية — ما لم يطلب المستخدم الفحص
+     * الكامل صراحةً.
+     */
+    private fun isCarveCandidate(file: File, depth: ScanDepth): Boolean {
+        val length = runCatching { file.length() }.getOrDefault(0L)
+        if (length < MIN_CARVE_TARGET) return false
+        val floor = if (depth == ScanDepth.FULL) FULL_CARVE_PRIORITY else MIN_CARVE_PRIORITY
+        return CarvePriority.of(file.absolutePath) >= floor
     }
 
     /** انظر [CarvePriority] لسبب هذا الترتيب. */

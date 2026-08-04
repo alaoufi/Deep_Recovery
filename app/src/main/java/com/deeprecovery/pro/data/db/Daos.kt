@@ -174,6 +174,20 @@ interface RecoveredFileDao {
     @Query("SELECT COUNT(*) FROM recovered_files WHERE sessionId = :sessionId")
     suspend fun countForSession(sessionId: Long): Int
 
+    /**
+     * عناصر سلة مهملات النظام في هذه الجلسة.
+     *
+     * لا يملك التطبيق فتح بايتاتها، لكن أمر إلغاء الحذف الذي ينفّذه
+     * النظام يعيدها إلى مكانها الأصلي — وهو أضمن طريق استعادة بلا Root.
+     */
+    @Query(
+        """
+        SELECT contentUri FROM recovered_files
+        WHERE sessionId = :sessionId AND note = 'trashed' AND contentUri IS NOT NULL
+        """
+    )
+    suspend fun trashedUris(sessionId: Long): List<String>
+
     @Query("SELECT id FROM recovered_files WHERE sessionId = :sessionId AND contentHash = :hash LIMIT 1")
     suspend fun findByHash(sessionId: Long, hash: String): Long?
 

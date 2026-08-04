@@ -158,6 +158,20 @@ class ResultsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * عناصر سلة مهملات النظام في هذه الجلسة.
+     *
+     * أضمن طريق استعادة بلا Root: النظام يعيدها إلى مكانها الأصلي
+     * فتظهر في المعرض فوراً، بينما لا يستطيع التطبيق نسخ بايتاتها أصلاً.
+     */
+    fun loadTrashedUris(onReady: (List<android.net.Uri>) -> Unit) {
+        viewModelScope.launch {
+            val uris = repository.trashedUris(_sessionId.value)
+                .mapNotNull { runCatching { android.net.Uri.parse(it) }.getOrNull() }
+            onReady(uris)
+        }
+    }
+
     fun forgetRecords(ids: List<Long>) {
         viewModelScope.launch {
             com.deeprecovery.pro.engine.SecureDeleteEngine(getApplication()).forgetRecords(ids)
