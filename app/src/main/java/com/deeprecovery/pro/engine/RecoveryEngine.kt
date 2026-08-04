@@ -78,10 +78,13 @@ class RecoveryEngine(private val context: Context) {
         destination: Uri?,
         preserveStructure: Boolean,
         skipDuplicates: Boolean,
+        albumName: String = ROOT_FOLDER_NAME,
         onProgress: suspend (RecoveryProgress) -> Unit = {}
     ): RecoveryReport {
         val files = fileDao.getFolderTreeContents(sessionId, folderPath)
-        return recover(sessionId, files, destination, preserveStructure, skipDuplicates, onProgress)
+        return recover(
+            sessionId, files, destination, preserveStructure, skipDuplicates, albumName, onProgress
+        )
     }
 
     /** يستعيد مجموعة ملفات محددة بالمعرّفات. */
@@ -91,10 +94,13 @@ class RecoveryEngine(private val context: Context) {
         destination: Uri?,
         preserveStructure: Boolean,
         skipDuplicates: Boolean,
+        albumName: String = ROOT_FOLDER_NAME,
         onProgress: suspend (RecoveryProgress) -> Unit = {}
     ): RecoveryReport {
         val files = fileDao.getByIds(fileIds)
-        return recover(sessionId, files, destination, preserveStructure, skipDuplicates, onProgress)
+        return recover(
+            sessionId, files, destination, preserveStructure, skipDuplicates, albumName, onProgress
+        )
     }
 
     private suspend fun recover(
@@ -103,10 +109,11 @@ class RecoveryEngine(private val context: Context) {
         destination: Uri?,
         preserveStructure: Boolean,
         skipDuplicates: Boolean,
+        albumName: String,
         onProgress: suspend (RecoveryProgress) -> Unit
     ): RecoveryReport {
         val startedAt = System.currentTimeMillis()
-        val writer = createWriter(destination)
+        val writer = createWriter(destination, albumName.ifBlank { ROOT_FOLDER_NAME })
         val failures = mutableListOf<String>()
         val needsUntrash = mutableListOf<String>()
         var succeeded = 0
@@ -262,12 +269,12 @@ class RecoveryEngine(private val context: Context) {
      * الوجهة الافتراضية الآن عبر MediaStore: تعمل بلا أي إذن تخزين
      * وتظهر الملفات في المعرض مباشرة.
      */
-    private fun createWriter(destination: Uri?): DestinationWriter = when {
+    private fun createWriter(destination: Uri?, albumName: String): DestinationWriter = when {
         destination != null -> SafWriter(context, destination)
         android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q ->
-            MediaStoreWriter(context)
+            MediaStoreWriter(context, albumName)
         else ->
-            DirectWriter(File(android.os.Environment.getExternalStorageDirectory(), ROOT_FOLDER_NAME))
+            DirectWriter(File(android.os.Environment.getExternalStorageDirectory(), albumName))
     }
 
     /**
@@ -278,11 +285,14 @@ class RecoveryEngine(private val context: Context) {
      * فتظهر في المعرض فور انتهاء الاستعادة.
      */
     @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
-    private class MediaStoreWriter(private val context: Context) : DestinationWriter {
+    private class MediaStoreWriter(
+        private val context: Context,
+        private val albumName: String
+    ) : DestinationWriter {
 
         private val createdFolders = mutableSetOf<String>()
 
-        override val destinationLabel: String = ROOT_FOLDER_NAME
+        override val destinationLabel: String = albumName
         override val foldersCreated: Int get() = createdFolders.size
 
         override fun write(
@@ -298,7 +308,7 @@ class RecoveryEngine(private val context: Context) {
                 android.os.Environment.DIRECTORY_PICTURES
             }
             val relative = buildString {
-                append(baseDir).append('/').append(ROOT_FOLDER_NAME)
+                append(baseDir).append('/').append(albumName)
                 val clean = sanitize(relativeFolder)
                 if (clean.isNotEmpty()) append('/').append(clean)
             }

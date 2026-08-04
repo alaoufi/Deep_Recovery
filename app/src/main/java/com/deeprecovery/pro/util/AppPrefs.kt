@@ -110,6 +110,16 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_SKIP_DUPES, true)
         set(value) = prefs.edit { putBoolean(KEY_SKIP_DUPES, value) }
 
+    /**
+     * اسم الألبوم الذي تُحفظ فيه الملفات المستعادة.
+     *
+     * يظهر في المعرض باسمه، فيعرف المستخدم أين ذهبت ملفاته بدل البحث عنها.
+     */
+    var recoveryAlbumName: String
+        get() = prefs.getString(KEY_ALBUM_NAME, DEFAULT_ALBUM)?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_ALBUM
+        set(value) = prefs.edit { putString(KEY_ALBUM_NAME, sanitizeAlbum(value)) }
+
     var lastSessionId: Long
         get() = prefs.getLong(KEY_LAST_SESSION, -1L)
         set(value) = prefs.edit { putLong(KEY_LAST_SESSION, value) }
@@ -118,7 +128,20 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_DISCLAIMER, false)
         set(value) = prefs.edit { putBoolean(KEY_DISCLAIMER, value) }
 
-    private companion object {
+    companion object {
+        /** الألبوم الافتراضي حين لا يختار المستخدم اسماً. */
+        const val DEFAULT_ALBUM = "DeepRecoveryPro"
+
+        /**
+         * اسم الألبوم يصبح مجلداً حقيقياً في التخزين، لذلك يجب ألا يحوي
+         * فواصل مسار ولا محارف ممنوعة، وإلا فشل إنشاء الملف.
+         */
+        fun sanitizeAlbum(raw: String): String = raw.trim()
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .trim('.', ' ')
+            .take(60)
+            .ifBlank { DEFAULT_ALBUM }
+
         const val KEY_PREFS_VERSION = "prefs_version"
         const val CURRENT_PREFS_VERSION = 3
 
@@ -134,6 +157,7 @@ class AppPrefs(context: Context) {
         const val KEY_TREE_URI = "recovery_tree_uri"
         const val KEY_PRESERVE_TREE = "preserve_tree"
         const val KEY_SKIP_DUPES = "skip_duplicates"
+        const val KEY_ALBUM_NAME = "recovery_album"
         const val KEY_LAST_SESSION = "last_session"
         const val KEY_DISCLAIMER = "disclaimer_accepted"
 

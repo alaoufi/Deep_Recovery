@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -66,6 +67,11 @@ class RecoverySheet : BottomSheetDialogFragment() {
 
         binding.preserveSwitch.isChecked = viewModel.preserveStructure
         binding.skipDuplicatesSwitch.isChecked = viewModel.skipDuplicates
+
+        binding.albumInput.setText(viewModel.albumName)
+        binding.albumInput.doAfterTextChanged { renderAlbumHelp(it?.toString().orEmpty()) }
+        renderAlbumHelp(viewModel.albumName)
+
         renderDestination()
 
         binding.chooseDestinationButton.setOnClickListener { pickDestination.launch(null) }
@@ -88,7 +94,16 @@ class RecoverySheet : BottomSheetDialogFragment() {
         binding.destinationText.text = getString(R.string.recovery_destination_current, label)
     }
 
+    /** يُظهر المسار النهائي قبل البدء حتى لا يبحث المستخدم عن ملفاته بعدها. */
+    private fun renderAlbumHelp(raw: String) {
+        val album = com.deeprecovery.pro.util.AppPrefs.sanitizeAlbum(raw)
+        binding.albumHelp.text = getString(R.string.recovery_album_target, album)
+    }
+
     private fun start() {
+        // الاسم يُثبَّت لحظة البدء: القراءة عند كل حرف تحفظ أسماء ناقصة
+        viewModel.albumName = binding.albumInput.text?.toString().orEmpty()
+
         isCancelable = false
         binding.startRecoveryButton.isEnabled = false
         binding.recoveryProgress.visibility = View.VISIBLE

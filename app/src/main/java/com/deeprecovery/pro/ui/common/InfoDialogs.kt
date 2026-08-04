@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import com.deeprecovery.pro.R
 import com.deeprecovery.pro.util.CrashReporter
+import com.deeprecovery.pro.util.Diagnostics
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
@@ -77,6 +78,45 @@ object InfoDialogs {
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.crash_details_title))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        runCatching {
+            context.startActivity(
+                Intent.createChooser(intent, context.getString(R.string.crash_share))
+            )
+        }
+    }
+
+    /**
+     * تقرير تشخيصي يُظهر ما يستطيع التطبيق رؤيته فعلاً.
+     *
+     * حين لا يجد الفحص شيئاً، هذا هو الفرق بين تخمين السبب ومعرفته:
+     * إذن ناقص، أو مجلد غير موجود، أو النظام يمنع سرد محتواه.
+     */
+    fun showDiagnostics(context: Context) {
+        val report = runCatching { Diagnostics.collect(context) }.getOrNull()
+        if (report == null) {
+            MaterialAlertDialogBuilder(context)
+                .setMessage(R.string.diagnostics_failed)
+                .setPositiveButton(R.string.report_done, null)
+                .show()
+            return
+        }
+
+        val text = Diagnostics.format(context, report)
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.diagnostics_title)
+            .setMessage(text)
+            .setIcon(R.drawable.ic_info)
+            .setPositiveButton(R.string.report_done, null)
+            .setNeutralButton(R.string.crash_share) { _, _ -> shareText(context, text) }
+            .show()
+    }
+
+    private fun shareText(context: Context, text: String) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.diagnostics_title))
         }
         runCatching {
             context.startActivity(

@@ -12,34 +12,41 @@
     app:cardElevation="0dp"
     app:strokeWidth="0dp">
 
-    <FrameLayout
+    <!--
+        ConstraintLayout لا FrameLayout: نسبة ١:١ تحتاج قيداً حقيقياً،
+        وداخل FrameLayout كان الارتفاع 0dp يعني صفراً فتنهار الخلية.
+    -->
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
         <!-- مربّع: يعطي شبكة منتظمة مهما اختلفت أبعاد الصور -->
         <ImageView
             android:id="@+id/gridThumbnail"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="0dp"
             android:background="@drawable/bg_thumbnail"
             android:contentDescription="@string/preview_title"
             android:scaleType="centerCrop"
-            app:layout_constraintDimensionRatio="1:1"
-            tools:layout_height="120dp"
+            app:layout_constraintDimensionRatio="H,1:1"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
             tools:src="@drawable/ic_image" />
 
         <View
             android:id="@+id/gridQualityStrip"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="3dp"
-            android:layout_gravity="bottom"
+            app:layout_constraintBottom_toBottomOf="@id/gridThumbnail"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             tools:background="@color/quality_excellent" />
 
         <TextView
             android:id="@+id/gridDuration"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|start"
             android:layout_margin="5dp"
             android:background="@drawable/bg_duration_badge"
             android:paddingHorizontal="5dp"
@@ -47,6 +54,8 @@
             android:textColor="#FFFFFF"
             android:textSize="10sp"
             android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/gridThumbnail"
+            app:layout_constraintStart_toStartOf="parent"
             tools:text="00:32"
             tools:visibility="visible" />
 
@@ -54,20 +63,20 @@
             android:id="@+id/gridVideoBadge"
             android:layout_width="22dp"
             android:layout_height="22dp"
-            android:layout_gravity="top|end"
             android:layout_margin="5dp"
             android:contentDescription="@string/filter_videos"
             android:src="@drawable/ic_video"
             android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
             app:tint="#FFFFFF" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/gridCheck"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|start"
-            android:clickable="false"
-            android:focusable="false" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    </FrameLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

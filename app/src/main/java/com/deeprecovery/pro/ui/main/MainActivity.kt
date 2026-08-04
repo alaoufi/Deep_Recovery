@@ -47,6 +47,11 @@ class MainActivity : AppCompatActivity() {
                     true
                 }
 
+                R.id.action_diagnostics -> {
+                    InfoDialogs.showDiagnostics(this)
+                    true
+                }
+
                 R.id.action_crash_log -> {
                     InfoDialogs.showCrashReport(this)
                     true

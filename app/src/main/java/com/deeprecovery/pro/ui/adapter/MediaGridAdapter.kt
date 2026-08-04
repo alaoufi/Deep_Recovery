@@ -65,17 +65,6 @@ class MediaGridAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: RecoveredFileEntity, selected: Boolean) = with(binding) {
-            // ارتفاع مربّع يُحسب من العرض الفعلي للعمود
-            gridThumbnail.post {
-                val size = gridThumbnail.width
-                if (size > 0 && gridThumbnail.layoutParams.height != size) {
-                    gridThumbnail.layoutParams = gridThumbnail.layoutParams.apply {
-                        height = size
-                    }
-                    gridThumbnail.requestLayout()
-                }
-            }
-
             val isVideo = item.mediaType == MediaType.VIDEO
             gridVideoBadge.visibility = if (isVideo) View.VISIBLE else View.GONE
 

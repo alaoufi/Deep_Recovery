@@ -23,6 +23,36 @@
         android:textColor="?attr/colorOnSurfaceVariant"
         tools:text="تم تحديد 24 ملف" />
 
+    <!-- الألبوم: أهم من الوجهة التقنية، لأن المستخدم يبحث عنه في المعرض -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/albumLayout"
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="@string/recovery_album_hint"
+        app:startIconDrawable="@drawable/ic_folder">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/albumInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:imeOptions="actionDone"
+            android:inputType="text"
+            android:maxLines="1" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        android:id="@+id/albumHelp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="4dp"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        tools:text="ستُحفظ في: Pictures/MyAlbum" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/chooseDestinationButton"
         style="@style/Widget.Material3.Button.OutlinedButton"

@@ -15,6 +15,12 @@
         app:showAsAction="never" />
 
     <item
+        android:id="@+id/action_diagnostics"
+        android:icon="@drawable/ic_info"
+        android:title="@string/menu_diagnostics"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_crash_log"
         android:title="@string/menu_crash_log"
         app:showAsAction="never" />

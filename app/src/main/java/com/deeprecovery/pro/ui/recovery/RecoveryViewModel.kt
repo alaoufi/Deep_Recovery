@@ -61,6 +61,14 @@ class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
             prefs.skipDuplicates = value
         }
 
+    /** اسم الألبوم الذي تُحفظ فيه الملفات المستعادة. */
+    var albumName: String = prefs.recoveryAlbumName
+        set(value) {
+            val clean = com.deeprecovery.pro.util.AppPrefs.sanitizeAlbum(value)
+            field = clean
+            prefs.recoveryAlbumName = clean
+        }
+
     fun setDestination(uri: Uri) {
         destinationUri = uri
         prefs.recoveryTreeUri = uri.toString()
@@ -74,7 +82,8 @@ class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
                 fileIds,
                 destinationUri,
                 preserveStructure,
-                skipDuplicates
+                skipDuplicates,
+                albumName
             )
         )
     }
@@ -87,7 +96,8 @@ class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
                 folderPath,
                 destinationUri,
                 preserveStructure,
-                skipDuplicates
+                skipDuplicates,
+                albumName
             )
         )
     }

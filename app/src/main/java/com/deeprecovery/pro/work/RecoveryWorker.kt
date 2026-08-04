@@ -33,6 +33,8 @@ class RecoveryWorker(
         val destination = inputData.getString(KEY_DESTINATION)?.let(Uri::parse)
         val preserve = inputData.getBoolean(KEY_PRESERVE, true)
         val skipDuplicates = inputData.getBoolean(KEY_SKIP_DUPES, true)
+        val albumName = inputData.getString(KEY_ALBUM)
+            ?: com.deeprecovery.pro.util.AppPrefs.DEFAULT_ALBUM
         val folderPath = inputData.getString(KEY_FOLDER)
         val fileIds = inputData.getLongArray(KEY_FILE_IDS)?.toList().orEmpty()
 
@@ -41,7 +43,9 @@ class RecoveryWorker(
         var lastUpdate = 0L
 
         val report = if (folderPath != null) {
-            engine.recoverFolder(sessionId, folderPath, destination, preserve, skipDuplicates) {
+            engine.recoverFolder(
+                sessionId, folderPath, destination, preserve, skipDuplicates, albumName
+            ) {
                 // كبح تحديث الإشعار: نشره لكل ملف يضغط على النظام بلا داعٍ
                 val now = System.currentTimeMillis()
                 val isEdge = it.current <= 1 || it.current == it.total
@@ -61,7 +65,9 @@ class RecoveryWorker(
                 }
             }
         } else {
-            engine.recoverFiles(sessionId, fileIds, destination, preserve, skipDuplicates) {
+            engine.recoverFiles(
+                sessionId, fileIds, destination, preserve, skipDuplicates, albumName
+            ) {
                 // كبح تحديث الإشعار: نشره لكل ملف يضغط على النظام بلا داعٍ
                 val now = System.currentTimeMillis()
                 val isEdge = it.current <= 1 || it.current == it.total
@@ -130,6 +136,7 @@ class RecoveryWorker(
         const val KEY_DESTINATION = "destination"
         const val KEY_PRESERVE = "preserve"
         const val KEY_SKIP_DUPES = "skip_duplicates"
+        const val KEY_ALBUM = "album"
         const val KEY_FOLDER = "folder"
         const val KEY_FILE_IDS = "file_ids"
 
@@ -153,13 +160,15 @@ class RecoveryWorker(
             folderPath: String,
             destination: Uri?,
             preserve: Boolean,
-            skipDuplicates: Boolean
+            skipDuplicates: Boolean,
+            albumName: String
         ): Data = workDataOf(
             KEY_SESSION_ID to sessionId,
             KEY_FOLDER to folderPath,
             KEY_DESTINATION to destination?.toString(),
             KEY_PRESERVE to preserve,
-            KEY_SKIP_DUPES to skipDuplicates
+            KEY_SKIP_DUPES to skipDuplicates,
+            KEY_ALBUM to albumName
         )
 
         fun inputForFiles(
@@ -167,13 +176,15 @@ class RecoveryWorker(
             fileIds: List<Long>,
             destination: Uri?,
             preserve: Boolean,
-            skipDuplicates: Boolean
+            skipDuplicates: Boolean,
+            albumName: String
         ): Data = workDataOf(
             KEY_SESSION_ID to sessionId,
             KEY_FILE_IDS to fileIds.toLongArray(),
             KEY_DESTINATION to destination?.toString(),
             KEY_PRESERVE to preserve,
-            KEY_SKIP_DUPES to skipDuplicates
+            KEY_SKIP_DUPES to skipDuplicates,
+            KEY_ALBUM to albumName
         )
     }
 }
