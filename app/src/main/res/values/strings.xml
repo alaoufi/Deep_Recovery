@@ -261,6 +261,10 @@
     <string name="preview_no_source">لا توجد بيانات قابلة للقراءة لهذا العنصر.</string>
     <string name="preview_no_external_app">لا يوجد تطبيق على الجهاز يفتح هذا النوع.</string>
     <string name="grid_no_preview">بلا معاينة</string>
+    <string name="preview_delete_this">حذف نهائي لهذا الملف</string>
+    <string name="preview_delete_body">سيُمسح «%1$s» نهائياً بالكتابة فوق بياناته. لا يمكن التراجع.</string>
+    <string name="preview_delete_done">تم الحذف النهائي.</string>
+    <string name="preview_delete_failed">تعذّر الحذف النهائي لهذا الملف.</string>
     <string name="scan_view_results_live">عرض %1$d نتيجة الآن (الفحص مستمر)</string>
     <string name="untrash_all">إرجاع %1$d عنصراً من سلة المهملات</string>
     <string name="untrash_done">تمت الاستعادة — تجدها في المعرض في مكانها الأصلي.</string>

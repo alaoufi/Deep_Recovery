@@ -97,6 +97,19 @@
                     android:text="@string/preview_recover_this"
                     app:icon="@drawable/ic_restore" />
 
+                <!-- الحذف النهائي لا رجعة فيه، فلا يبدأ إلا بتأكيد صريح -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/deleteThisButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/preview_delete_this"
+                    android:textColor="?attr/colorError"
+                    app:icon="@drawable/ic_delete"
+                    app:iconTint="?attr/colorError"
+                    app:strokeColor="?attr/colorError" />
+
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 

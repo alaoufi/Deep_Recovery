@@ -11,6 +11,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.deeprecovery.pro.R
@@ -35,6 +36,19 @@ class PreviewFragment : Fragment() {
     private var player: ExoPlayer? = null
     private var currentFile: RecoveredFileEntity? = null
     private var playingHolder: PreviewPagerAdapter.PageHolder? = null
+    private var pendingDeleteId: Long = -1L
+
+    /** نتيجة نافذة الحذف التي يعرضها النظام للملفات التي لا يملكها التطبيق. */
+    private val systemDelete = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        val id = pendingDeleteId
+        pendingDeleteId = -1L
+        if (result.resultCode == android.app.Activity.RESULT_OK && id > 0) {
+            viewModel.forgetRecord(id) { onDeleted(id) }
+        }
+    }
+
     private lateinit var pagerAdapter: PreviewPagerAdapter
 
     override fun onCreateView(
@@ -89,6 +103,88 @@ class PreviewFragment : Fragment() {
             val file = currentFile ?: return@setOnClickListener
             RecoverySheet.forFiles(file.sessionId, listOf(file.id))
                 .show(childFragmentManager, RecoverySheet.TAG)
+        }
+
+        binding.deleteThisButton.setOnClickListener {
+            currentFile?.let(::confirmDeleteForever)
+        }
+    }
+
+    /** الحذف النهائي لا رجعة فيه، فلا يبدأ إلا بتأكيد صريح. */
+    private fun confirmDeleteForever(file: RecoveredFileEntity) {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.delete_forever_title)
+            .setMessage(getString(R.string.preview_delete_body, file.displayName))
+            .setIcon(R.drawable.ic_info)
+            .setNegativeButton(R.string.action_cancel, null)
+            .setPositiveButton(R.string.delete_forever_confirm) { _, _ -> runDeleteForever(file) }
+            .show()
+    }
+
+    private fun runDeleteForever(file: RecoveredFileEntity) {
+        releasePlayer()
+        viewModel.deleteForever(file.id) { report ->
+            when {
+                report.needsConsent.isNotEmpty() -> {
+                    // ملف لا يملكه التطبيق: النظام وحده يحذفه بموافقة صريحة
+                    pendingDeleteId = file.id
+                    requestSystemDelete(report.needsConsent)
+                }
+
+                report.wiped > 0 -> onDeleted(file.id)
+
+                else -> toast(getString(R.string.preview_delete_failed))
+            }
+        }
+    }
+
+    private fun requestSystemDelete(uris: List<Uri>) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+            toast(getString(R.string.preview_delete_failed))
+            return
+        }
+        runCatching {
+            val request = android.provider.MediaStore.createDeleteRequest(
+                requireContext().contentResolver,
+                uris
+            )
+            systemDelete.launch(
+                androidx.activity.result.IntentSenderRequest.Builder(request.intentSender).build()
+            )
+        }.onFailure { toast(getString(R.string.preview_delete_failed)) }
+    }
+
+    /**
+     * يزيل الصفحة من المعرض بعد الحذف.
+     *
+     * إبقاؤها معروضة بعد حذف بياناتها يترك المستخدم أمام صفحة لملف لم
+     * يعد موجوداً.
+     */
+    private fun onDeleted(id: Long) {
+        // الرد يصل من نطاق الـViewModel وقد تكون الشاشة أُغلقت قبله
+        _binding ?: return
+        toast(getString(R.string.preview_delete_done))
+        val remaining = pagerAdapter.currentList.filterNot { it.id == id }
+        if (remaining.isEmpty()) {
+            findNavController().popBackStack()
+            return
+        }
+        val next = pagerAdapter.currentList.indexOfFirst { it.id == id }
+            .coerceIn(0, remaining.lastIndex)
+        pagerAdapter.submitList(remaining) {
+            binding.previewPager.setCurrentItem(next, false)
+            remaining.getOrNull(next)?.let {
+                currentFile = it
+                render(it)
+            }
+        }
+    }
+
+    private fun toast(message: String) {
+        _binding?.let {
+            com.google.android.material.snackbar.Snackbar
+                .make(it.root, message, 4000)
+                .show()
         }
     }
 
